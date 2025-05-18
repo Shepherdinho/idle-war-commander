@@ -119,128 +119,130 @@
   </div>
 
   <script>
-    let soldiers = 0;
-    let enemyHealth = 100;
-    let recruitRate = 1;
-    let attackPower = 10;
-    let recruitIntervalMs = 5000;
-    let upgradeRecruitCost = 50;
-    let upgradeAttackCost = 75;
+let soldiers = 0;
+let enemyHealth = 100;
+let recruitRate = 1;
+let attackPower = 10;
+let recruitIntervalMs = 5000;
+let upgradeRecruitCost = 50;
+let upgradeAttackCost = 75;
 
-    const soldiersEl = document.getElementById('soldiers');
-    const enemyHealthEl = document.getElementById('enemyHealth');
-    const recruitRateEl = document.getElementById('recruitRate');
-    const attackPowerEl = document.getElementById('attackPower');
-    const attackBtn = document.getElementById('attackBtn');
-    const upgradeRecruitBtn = document.getElementById('upgradeRecruitBtn');
-    const upgradeAttackBtn = document.getElementById('upgradeAttackBtn');
-    const upgradeRecruitCostEl = document.getElementById('upgradeRecruitCost');
-    const upgradeAttackCostEl = document.getElementById('upgradeAttackCost');
-    const messageEl = document.getElementById('message');
-    const resetBtn = document.getElementById('resetBtn');
+const soldiersEl = document.getElementById('soldiers');
+const enemyHealthEl = document.getElementById('enemyHealth');
+const recruitRateEl = document.getElementById('recruitRate');
+const attackPowerEl = document.getElementById('attackPower');
+const attackBtn = document.getElementById('attackBtn');
+const upgradeRecruitBtn = document.getElementById('upgradeRecruitBtn');
+const upgradeAttackBtn = document.getElementById('upgradeAttackBtn');
+const upgradeRecruitCostEl = document.getElementById('upgradeRecruitCost');
+const upgradeAttackCostEl = document.getElementById('upgradeAttackCost');
+const messageEl = document.getElementById('message');
+const resetBtn = document.getElementById('resetBtn');
 
-    const SAVE_KEY = 'idleWarCommanderSave';
+const SAVE_KEY = 'idleWarCommanderSave';
 
-    function updateUI() {
-      soldiersEl.textContent = soldiers;
-      enemyHealthEl.textContent = enemyHealth;
-      recruitRateEl.textContent = recruitRate;
-      attackPowerEl.textContent = attackPower;
-      upgradeRecruitCostEl.textContent = upgradeRecruitCost;
-      upgradeAttackCostEl.textContent = upgradeAttackCost;
+function updateUI() {
+  soldiersEl.textContent = soldiers;
+  enemyHealthEl.textContent = enemyHealth;
+  recruitRateEl.textContent = recruitRate;
+  attackPowerEl.textContent = attackPower;
+  upgradeRecruitCostEl.textContent = upgradeRecruitCost;
+  upgradeAttackCostEl.textContent = upgradeAttackCost;
 
-      attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
-      upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
-      upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
+  attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
+  upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
+  upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
+}
+
+function showMessage(text, color = '#2ecc71') {
+  messageEl.style.color = color;
+  messageEl.textContent = text;
+  setTimeout(() => {
+    messageEl.textContent = '';
+  }, 3000);
+}
+
+function saveGame() {
+  const saveData = {
+    soldiers, enemyHealth, recruitRate, attackPower,
+    upgradeRecruitCost, upgradeAttackCost
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+}
+
+function loadGame() {
+  const saved = localStorage.getItem(SAVE_KEY);
+  if (saved) {
+    const data = JSON.parse(saved);
+    soldiers = data.soldiers || 0;
+    enemyHealth = data.enemyHealth || 100;
+    recruitRate = data.recruitRate || 1;
+    attackPower = data.attackPower || 10;
+    upgradeRecruitCost = data.upgradeRecruitCost || 50;
+    upgradeAttackCost = data.upgradeAttackCost || 75;
+  }
+}
+
+attackBtn.onclick = () => {
+  if (soldiers >= 5 && enemyHealth > 0) {
+    soldiers -= 5;
+    enemyHealth -= attackPower;
+    if (enemyHealth < 0) enemyHealth = 0;
+    if (enemyHealth === 0) {
+      showMessage('Enemy defeated! +100 soldiers reward!');
+      soldiers += 100;
+      enemyHealth = 100;
+    } else {
+      showMessage('You attacked the enemy!');
     }
+    updateUI();
+    saveGame();
+  }
+};
 
-    function showMessage(text, color = '#2ecc71') {
-      messageEl.style.color = color;
-      messageEl.textContent = text;
-      setTimeout(() => {
-        messageEl.textContent = '';
-      }, 3000);
-    }
+upgradeRecruitBtn.onclick = () => {
+  if (soldiers >= upgradeRecruitCost) {
+    soldiers -= upgradeRecruitCost;
+    recruitRate += 1;
+    upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
+    showMessage('Recruit rate upgraded!');
+    updateUI();
+    saveGame();
+  }
+};
 
-    function saveGame() {
-      const saveData = {
-        soldiers, enemyHealth, recruitRate, attackPower,
-        upgradeRecruitCost, upgradeAttackCost
-      };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-    }
+upgradeAttackBtn.onclick = () => {
+  if (soldiers >= upgradeAttackCost) {
+    soldiers -= upgradeAttackCost;
+    attackPower += 5;
+    upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
+    showMessage('Attack power upgraded!');
+    updateUI();
+    saveGame();
+  }
+};
 
-    function loadGame() {
-      const saved = localStorage.getItem(SAVE_KEY);
-      if (saved) {
-        const data = JSON.parse(saved);
-        soldiers = data.soldiers || 0;
-        enemyHealth = data.enemyHealth || 100;
-        recruitRate = data.recruitRate || 1;
-        attackPower = data.attackPower || 10;
-        upgradeRecruitCost = data.upgradeRecruitCost || 50;
-        upgradeAttackCost = data.upgradeAttackCost || 75;
-      }
-    }
+resetBtn.onclick = () => {
+  if (confirm('Reset your game progress?')) {
+    soldiers = 0;
+    enemyHealth = 100;
+    recruitRate = 1;
+    attackPower = 10;
+    upgradeRecruitCost = 50;
+    upgradeAttackCost = 75;
+    localStorage.removeItem(SAVE_KEY);
+    updateUI();
+    showMessage('Game reset!', '#e74c3c');
+  }
+};
 
-    attackBtn.onclick = () => {
-      if (soldiers >= 5 && enemyHealth > 0) {
-        soldiers -= 5;
-        enemyHealth -= attackPower;
-        if (enemyHealth < 0) enemyHealth = 0;
-        if (enemyHealth === 0) {
-          showMessage('Enemy defeated! +100 soldiers reward!');
-          soldiers += 100;
-          enemyHealth = 100;
-        } else {
-          showMessage('You attacked the enemy!');
-        }
-        updateUI();
-        saveGame();
-      }
-    };
+// This is the key part to add soldiers over time
+setInterval(() => {
+  soldiers += recruitRate;
+  updateUI();
+  saveGame();
+}, recruitIntervalMs);
 
-    upgradeRecruitBtn.onclick = () => {
-      if (soldiers >= upgradeRecruitCost) {
-        soldiers -= upgradeRecruitCost;
-        recruitRate += 1;
-        upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
-        showMessage('Recruit rate upgraded!');
-        updateUI();
-        saveGame();
-      }
-    };
-
-    upgradeAttackBtn.onclick = () => {
-      if (soldiers >= upgradeAttackCost) {
-        soldiers -= upgradeAttackCost;
-        attackPower += 5;
-        upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
-        showMessage('Attack power upgraded!');
-        updateUI();
-        saveGame();
-      }
-    };
-
-    resetBtn.onclick = () => {
-      if (confirm('Reset your game progress?')) {
-        soldiers = 0;
-        enemyHealth = 100;
-        recruitRate = 1;
-        attackPower = 10;
-        upgradeRecruitCost = 50;
-        upgradeAttackCost = 75;
-        localStorage.removeItem(SAVE_KEY);
-        updateUI();
-        showMessage('Game reset!', '#e74c3c');
-      }
-    };
-
-    setInterval(() => {
-      soldiers += recruitRate;
-      updateUI();
-      saveGame();
-    }, recruitIntervalMs);
-
-    loadGame();
-    update
+// Load saved game on page load
+loadGame();
+updateUI();
