@@ -2,247 +2,177 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Idle War Commander</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Idle War Commander</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #1c1c1c;
-      color: #eee;
-      margin: 0; padding: 20px;
-      text-align: center;
-    }
-    h1 {
-      margin-bottom: 0;
-      font-size: 2.5rem;
-      color: #f39c12;
-      text-shadow: 1px 1px #000;
-    }
-    #game {
-      max-width: 400px;
-      margin: 20px auto;
-      background: #2c2c2c;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 15px #f39c12;
-    }
-    button {
-      font-size: 1.2rem;
-      margin: 10px 5px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      background: #f39c12;
-      color: #222;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    button:hover:not(:disabled) {
-      background: #d87f0a;
-    }
-    button:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-    #stats {
-      font-size: 1.3rem;
-      margin: 15px 0;
-      line-height: 1.5;
-    }
-    #upgrades {
-      margin-top: 20px;
-      text-align: left;
-    }
-    .upgrade {
-      background: #444;
-      margin: 10px 0;
-      padding: 10px;
-      border-radius: 6px;
-    }
-    .upgrade button {
-      float: right;
-    }
-    #message {
-      margin: 10px 0;
-      height: 24px;
-      color: #2ecc71;
-      font-weight: bold;
-    }
-    /* Ad container */
-    #ad-container {
-      margin-top: 30px;
-      display: flex;
-      justify-content: center;
-    }
+    body { font-family: Arial, sans-serif; background: #121212; color: #eee; padding: 20px; max-width: 400px; margin: auto; }
+    button { margin: 5px 0; padding: 10px; width: 100%; font-size: 1rem; }
+    .stats { margin-bottom: 10px; }
+    #message { margin-top: 10px; min-height: 24px; }
+    #adsense-container { margin: 20px 0; text-align: center; }
   </style>
-
-  <!-- Google AdSense script -->
-  <script data-ad-client="[YOUR-ADSENSE-CLIENT-ID]" async
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
 </head>
 <body>
+
   <h1>Idle War Commander</h1>
-  <div id="game">
-    <div id="stats">
-      Soldiers: <span id="soldiers">0</span><br />
-      Enemy Health: <span id="enemyHealth">100</span><br />
-      Recruit Rate: <span id="recruitRate">1</span>/5s<br />
-      Attack Power: <span id="attackPower">10</span>
-    </div>
 
-    <button id="attackBtn" disabled>Attack Enemy (-5 Soldiers)</button>
+  <div class="stats">Soldiers: <span id="soldiers">0</span></div>
+  <div class="stats">Enemy Health: <span id="enemyHealth">100</span></div>
+  <div class="stats">Recruit Rate: <span id="recruitRate">1</span> soldiers / 5 sec</div>
+  <div class="stats">Attack Power: <span id="attackPower">10</span></div>
 
-    <div id="upgrades">
-      <div class="upgrade">
-        Recruit Rate Upgrade (Cost: <span id="upgradeRecruitCost">50</span> soldiers)
-        <button id="upgradeRecruitBtn">Upgrade</button>
-      </div>
-      <div class="upgrade">
-        Attack Power Upgrade (Cost: <span id="upgradeAttackCost">75</span> soldiers)
-        <button id="upgradeAttackBtn">Upgrade</button>
-      </div>
-    </div>
+  <button id="attackBtn">Attack Enemy (Cost: 5 soldiers)</button>
+  <button id="upgradeRecruitBtn">Upgrade Recruit Rate (<span id="upgradeRecruitCost">50</span> soldiers)</button>
+  <button id="upgradeAttackBtn">Upgrade Attack Power (<span id="upgradeAttackCost">75</span> soldiers)</button>
+  <button id="resetBtn">Reset Game</button>
 
-    <div id="message"></div>
+  <div id="message"></div>
 
-    <button id="resetBtn" style="background:#c0392b; color:#fff;">Reset Game</button>
-
-    <!-- AdSense ad block -->
-    <div id="ad-container">
-      <ins class="adsbygoogle"
-        style="display:block; width:320px; height:100px;"
-        data-ad-client="[YOUR-ADSENSE-CLIENT-ID]"
-        data-ad-slot="[YOUR-ADSENSE-SLOT-ID]"
-        data-ad-format="auto"
-        data-full-width-responsive="true"></ins>
-    </div>
+  <!-- Adsense ad container -->
+  <div id="adsense-container">
+    <!-- Replace the following with your actual AdSense code -->
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+         data-ad-slot="1234567890"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+    <script>
+      (adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
   </div>
 
   <script>
-let soldiers = 0;
-let enemyHealth = 100;
-let recruitRate = 1;
-let attackPower = 10;
-let recruitIntervalMs = 5000;
-let upgradeRecruitCost = 50;
-let upgradeAttackCost = 75;
+    let soldiers = 0;
+    let enemyHealth = 100;
+    let recruitRate = 1;
+    let attackPower = 10;
+    const recruitIntervalMs = 5000;
+    let upgradeRecruitCost = 50;
+    let upgradeAttackCost = 75;
 
-const soldiersEl = document.getElementById('soldiers');
-const enemyHealthEl = document.getElementById('enemyHealth');
-const recruitRateEl = document.getElementById('recruitRate');
-const attackPowerEl = document.getElementById('attackPower');
-const attackBtn = document.getElementById('attackBtn');
-const upgradeRecruitBtn = document.getElementById('upgradeRecruitBtn');
-const upgradeAttackBtn = document.getElementById('upgradeAttackBtn');
-const upgradeRecruitCostEl = document.getElementById('upgradeRecruitCost');
-const upgradeAttackCostEl = document.getElementById('upgradeAttackCost');
-const messageEl = document.getElementById('message');
-const resetBtn = document.getElementById('resetBtn');
+    const soldiersEl = document.getElementById('soldiers');
+    const enemyHealthEl = document.getElementById('enemyHealth');
+    const recruitRateEl = document.getElementById('recruitRate');
+    const attackPowerEl = document.getElementById('attackPower');
+    const attackBtn = document.getElementById('attackBtn');
+    const upgradeRecruitBtn = document.getElementById('upgradeRecruitBtn');
+    const upgradeAttackBtn = document.getElementById('upgradeAttackBtn');
+    const upgradeRecruitCostEl = document.getElementById('upgradeRecruitCost');
+    const upgradeAttackCostEl = document.getElementById('upgradeAttackCost');
+    const messageEl = document.getElementById('message');
+    const resetBtn = document.getElementById('resetBtn');
 
-const SAVE_KEY = 'idleWarCommanderSave';
+    const SAVE_KEY = 'idleWarCommanderSave';
 
-function updateUI() {
-  soldiersEl.textContent = soldiers;
-  enemyHealthEl.textContent = enemyHealth;
-  recruitRateEl.textContent = recruitRate;
-  attackPowerEl.textContent = attackPower;
-  upgradeRecruitCostEl.textContent = upgradeRecruitCost;
-  upgradeAttackCostEl.textContent = upgradeAttackCost;
+    function updateUI() {
+      soldiersEl.textContent = soldiers;
+      enemyHealthEl.textContent = enemyHealth;
+      recruitRateEl.textContent = recruitRate;
+      attackPowerEl.textContent = attackPower;
+      upgradeRecruitCostEl.textContent = upgradeRecruitCost;
+      upgradeAttackCostEl.textContent = upgradeAttackCost;
 
-  attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
-  upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
-  upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
-}
-
-function showMessage(text, color = '#2ecc71') {
-  messageEl.style.color = color;
-  messageEl.textContent = text;
-  setTimeout(() => {
-    messageEl.textContent = '';
-  }, 3000);
-}
-
-function saveGame() {
-  const saveData = {
-    soldiers, enemyHealth, recruitRate, attackPower,
-    upgradeRecruitCost, upgradeAttackCost
-  };
-  localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
-}
-
-function loadGame() {
-  const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) {
-    const data = JSON.parse(saved);
-    soldiers = data.soldiers || 0;
-    enemyHealth = data.enemyHealth || 100;
-    recruitRate = data.recruitRate || 1;
-    attackPower = data.attackPower || 10;
-    upgradeRecruitCost = data.upgradeRecruitCost || 50;
-    upgradeAttackCost = data.upgradeAttackCost || 75;
-  }
-}
-
-attackBtn.onclick = () => {
-  if (soldiers >= 5 && enemyHealth > 0) {
-    soldiers -= 5;
-    enemyHealth -= attackPower;
-    if (enemyHealth < 0) enemyHealth = 0;
-    if (enemyHealth === 0) {
-      showMessage('Enemy defeated! +100 soldiers reward!');
-      soldiers += 100;
-      enemyHealth = 100;
-    } else {
-      showMessage('You attacked the enemy!');
+      attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
+      upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
+      upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
     }
+
+    function showMessage(text, color = '#2ecc71') {
+      messageEl.style.color = color;
+      messageEl.textContent = text;
+      setTimeout(() => {
+        messageEl.textContent = '';
+      }, 3000);
+    }
+
+    function saveGame() {
+      const saveData = {
+        soldiers, enemyHealth, recruitRate, attackPower,
+        upgradeRecruitCost, upgradeAttackCost
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+    }
+
+    function loadGame() {
+      const saved = localStorage.getItem(SAVE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        soldiers = data.soldiers || 0;
+        enemyHealth = data.enemyHealth || 100;
+        recruitRate = data.recruitRate || 1;
+        attackPower = data.attackPower || 10;
+        upgradeRecruitCost = data.upgradeRecruitCost || 50;
+        upgradeAttackCost = data.upgradeAttackCost || 75;
+      }
+    }
+
+    attackBtn.onclick = () => {
+      if (soldiers >= 5 && enemyHealth > 0) {
+        soldiers -= 5;
+        enemyHealth -= attackPower;
+        if (enemyHealth < 0) enemyHealth = 0;
+        if (enemyHealth === 0) {
+          showMessage('Enemy defeated! +100 soldiers reward!');
+          soldiers += 100;
+          enemyHealth = 100;
+        } else {
+          showMessage('You attacked the enemy!');
+        }
+        updateUI();
+        saveGame();
+      }
+    };
+
+    upgradeRecruitBtn.onclick = () => {
+      if (soldiers >= upgradeRecruitCost) {
+        soldiers -= upgradeRecruitCost;
+        recruitRate += 1;
+        upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
+        showMessage('Recruit rate upgraded!');
+        updateUI();
+        saveGame();
+      }
+    };
+
+    upgradeAttackBtn.onclick = () => {
+      if (soldiers >= upgradeAttackCost) {
+        soldiers -= upgradeAttackCost;
+        attackPower += 5;
+        upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
+        showMessage('Attack power upgraded!');
+        updateUI();
+        saveGame();
+      }
+    };
+
+    resetBtn.onclick = () => {
+      if (confirm('Reset your game progress?')) {
+        soldiers = 0;
+        enemyHealth = 100;
+        recruitRate = 1;
+        attackPower = 10;
+        upgradeRecruitCost = 50;
+        upgradeAttackCost = 75;
+        localStorage.removeItem(SAVE_KEY);
+        updateUI();
+        showMessage('Game reset!', '#e74c3c');
+      }
+    };
+
+    // Add soldiers automatically every 5 seconds
+    setInterval(() => {
+      soldiers += recruitRate;
+      updateUI();
+      saveGame();
+    }, recruitIntervalMs);
+
+    // Load saved game on page load
+    loadGame();
     updateUI();
-    saveGame();
-  }
-};
+  </script>
 
-upgradeRecruitBtn.onclick = () => {
-  if (soldiers >= upgradeRecruitCost) {
-    soldiers -= upgradeRecruitCost;
-    recruitRate += 1;
-    upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
-    showMessage('Recruit rate upgraded!');
-    updateUI();
-    saveGame();
-  }
-};
-
-upgradeAttackBtn.onclick = () => {
-  if (soldiers >= upgradeAttackCost) {
-    soldiers -= upgradeAttackCost;
-    attackPower += 5;
-    upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
-    showMessage('Attack power upgraded!');
-    updateUI();
-    saveGame();
-  }
-};
-
-resetBtn.onclick = () => {
-  if (confirm('Reset your game progress?')) {
-    soldiers = 0;
-    enemyHealth = 100;
-    recruitRate = 1;
-    attackPower = 10;
-    upgradeRecruitCost = 50;
-    upgradeAttackCost = 75;
-    localStorage.removeItem(SAVE_KEY);
-    updateUI();
-    showMessage('Game reset!', '#e74c3c');
-  }
-};
-
-// This is the key part to add soldiers over time
-setInterval(() => {
-  soldiers += recruitRate;
-  updateUI();
-  saveGame();
-}, recruitIntervalMs);
-
-// Load saved game on page load
-loadGame();
-updateUI();
+  <!-- Adsense library -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+</body>
+</html>
