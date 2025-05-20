@@ -3,202 +3,309 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Idle War Commander - Clean Sprite Animation</title>
+<title>Idle War Commander - Enhanced</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet" />
 <style>
   body {
-    margin: 0; padding: 0;
-    font-family: Arial, sans-serif;
-    background-color: #121212;
-    color: #eee;
-    user-select: none;
+    font-family: 'Orbitron', sans-serif;
+    background: #0f0f0f;
+    color: #f1f1f1;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
   }
-
   header {
-    background: #222;
-    padding: 15px;
+    background: #111;
+    padding: 20px;
     text-align: center;
     font-size: 2rem;
-    font-weight: bold;
-    letter-spacing: 2px;
-    border-bottom: 2px solid #0f0;
+    border-bottom: 2px solid #333;
+    user-select: none;
   }
-
-  main {
-    display: flex;
-    padding: 20px;
+  .container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
     gap: 20px;
+    padding: 20px;
   }
-
-  .controls {
-    width: 300px;
-    background: #222;
+  .panel, .logbox {
+    background: rgba(255,255,255,0.05);
     border-radius: 8px;
     padding: 15px;
     box-sizing: border-box;
   }
-
-  .controls h2 {
+  .panel h3, .logbox h3 {
     margin-top: 0;
   }
-
   button {
-    width: 100%;
-    padding: 10px;
     margin: 8px 0;
+    padding: 12px;
+    width: 100%;
     font-size: 1rem;
-    cursor: pointer;
+    background: #3498db;
     border: none;
+    color: white;
+    cursor: pointer;
     border-radius: 6px;
-    background: #0f0;
-    color: #000;
-    font-weight: bold;
-    transition: background-color 0.3s ease;
+    transition: background 0.3s;
+    font-weight: 700;
   }
-
+  button:hover:not(:disabled) {
+    background: #2980b9;
+  }
   button:disabled {
-    background: #444;
-    color: #999;
+    background: #555;
     cursor: not-allowed;
   }
-
-  button:hover:not(:disabled) {
-    background: #0c0;
+  .log {
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 0.9rem;
   }
-
-  .battlefield {
-    flex-grow: 1;
+  /* Battlefield area */
+  .graphics {
+    position: relative;
     background: linear-gradient(135deg, #003300, #006600);
     border-radius: 12px;
-    position: relative;
-    overflow: visible;
     height: 320px;
+    overflow: visible;
   }
-
   /* Soldier sprite container */
   .soldier {
     position: absolute;
     bottom: 20px;
-    left: 15%;
+    left: 10%;
     width: 128px;
     height: 128px;
-    background-image: url('https://i.imgur.com/mGxmTvQ.png'); /* soldier sprite */
-    background-size: 896% 100%; /* 7 frames */
-    animation: soldierAnim 1.4s steps(7) infinite;
+    background-image: url('https://i.imgur.com/mGxmTvQ.png'); /* soldier sprite sheet: 7 frames horizontal */
+    background-size: 896% 100%;
+    animation: soldierRun 1.4s steps(7) infinite;
     image-rendering: pixelated;
+    user-select: none;
   }
-
   /* Enemy sprite container */
   .enemy {
     position: absolute;
     bottom: 20px;
-    right: 15%;
+    right: 10%;
     width: 128px;
     height: 128px;
-    background-image: url('https://i.imgur.com/5uqXc5R.png'); /* enemy sprite */
-    background-size: 800% 100%; /* 8 frames */
-    animation: enemyAnim 1.6s steps(8) infinite;
+    background-image: url('https://i.imgur.com/5uqXc5R.png'); /* enemy sprite sheet: 8 frames horizontal */
+    background-size: 800% 100%;
+    animation: enemyRun 1.6s steps(8) infinite;
     image-rendering: pixelated;
+    user-select: none;
   }
-
-  @keyframes soldierAnim {
+  /* Attack flash effect on enemy */
+  .enemy.attack-flash {
+    animation: enemyAttackFlash 0.5s ease forwards;
+  }
+  @keyframes soldierRun {
     from { background-position: 0 0; }
     to { background-position: 100% 0; }
   }
-
-  @keyframes enemyAnim {
+  @keyframes enemyRun {
     from { background-position: 0 0; }
     to { background-position: 100% 0; }
   }
-
-  .stats {
-    margin-top: 15px;
-  }
-
-  .log {
-    max-height: 120px;
-    overflow-y: auto;
-    margin-top: 10px;
-    background: #111;
-    border-radius: 6px;
-    padding: 8px;
-    font-size: 0.9rem;
+  @keyframes enemyAttackFlash {
+    0% { filter: brightness(1); }
+    50% { filter: brightness(3); }
+    100% { filter: brightness(1); }
   }
 </style>
 </head>
 <body>
-
 <header>Idle War Commander</header>
 
-<main>
-  <section class="controls" aria-label="Game controls and stats">
-    <h2>Army</h2>
-    <div>Soldiers: <span id="soldiersCount">0</span></div>
-    <div>Enemy Health: <span id="enemyHealth">100</span></div>
+<div class="container">
+  <section class="panel" aria-label="Game controls and stats">
+    <h3>Army Overview</h3>
+    <p>Soldiers: <strong id="soldiers">0</strong></p>
+    <p>Enemy Health: <strong id="enemyHealth">100</strong></p>
+    <p>Recruit Rate: <strong id="recruitRate">1</strong> / 5s</p>
+    <p>Attack Power: <strong id="attackPower">10</strong></p>
+    <p>Gold: <strong id="gold">0</strong></p>
 
-    <div class="stats">
-      <button id="recruitBtn">Recruit 1 Soldier</button>
-      <button id="attackBtn" disabled>Attack Enemy (Cost: 5 Soldiers)</button>
-    </div>
+    <h3>Combat</h3>
+    <button id="attackBtn" disabled>Attack Enemy (Cost: 5 soldiers)</button>
 
-    <div class="log" aria-live="polite" aria-atomic="true" id="logBox"></div>
+    <h3>Upgrades</h3>
+    <button id="upgradeRecruitBtn" disabled>Upgrade Recruit Rate (<span id="upgradeRecruitCost">50</span> soldiers)</button>
+    <button id="upgradeAttackBtn" disabled>Upgrade Attack Power (<span id="upgradeAttackCost">75</span> soldiers)</button>
+    <button id="upgradeGoldBtn" disabled>Upgrade Gold Gain (<span id="upgradeGoldCost">30</span> gold)</button>
+
+    <h3>Item Shop</h3>
+    <button id="buyShieldBtn" disabled>Buy Shield (50 gold)</button>
+    <button id="buyMedicBtn" disabled>Buy Medic Tent (100 gold)</button>
+
+    <button id="resetBtn">Reset Game</button>
   </section>
 
-  <section class="battlefield" aria-label="Battlefield area">
-    <div class="soldier" role="img" aria-label="Animated soldier"></div>
-    <div class="enemy" role="img" aria-label="Animated enemy"></div>
+  <section class="graphics" aria-label="Battlefield">
+    <div class="soldier" role="img" aria-label="Animated soldiers training"></div>
+    <div class="enemy" role="img" aria-label="Animated enemy fighting"></div>
   </section>
-</main>
+</div>
+
+<div class="logbox" aria-live="polite" aria-atomic="true" aria-label="Command Log">
+  <h3>Command Log</h3>
+  <div class="log" id="log"></div>
+</div>
 
 <script>
-  const soldiersCountEl = document.getElementById('soldiersCount');
-  const enemyHealthEl = document.getElementById('enemyHealth');
-  const recruitBtn = document.getElementById('recruitBtn');
-  const attackBtn = document.getElementById('attackBtn');
-  const logBox = document.getElementById('logBox');
-
+  // Game State
   let soldiers = 0;
   let enemyHealth = 100;
+  let recruitRate = 1;
+  let attackPower = 10;
+  let gold = 0;
+  let goldGain = 1;
+  let shieldActive = false;
+  let medicActive = false;
 
+  let upgradeRecruitCost = 50;
+  let upgradeAttackCost = 75;
+  let upgradeGoldCost = 30;
+
+  // DOM refs
+  const $ = id => document.getElementById(id);
+  const soldiersEl = $('soldiers');
+  const enemyHealthEl = $('enemyHealth');
+  const recruitRateEl = $('recruitRate');
+  const attackPowerEl = $('attackPower');
+  const goldEl = $('gold');
+
+  const upgradeRecruitCostEl = $('upgradeRecruitCost');
+  const upgradeAttackCostEl = $('upgradeAttackCost');
+  const upgradeGoldCostEl = $('upgradeGoldCost');
+
+  const attackBtn = $('attackBtn');
+  const upgradeRecruitBtn = $('upgradeRecruitBtn');
+  const upgradeAttackBtn = $('upgradeAttackBtn');
+  const upgradeGoldBtn = $('upgradeGoldBtn');
+
+  const buyShieldBtn = $('buyShieldBtn');
+  const buyMedicBtn = $('buyMedicBtn');
+
+  const resetBtn = $('resetBtn');
+  const logEl = $('log');
+
+  const enemyDiv = document.querySelector('.enemy');
+
+  // Update UI and buttons enable state
   function updateUI() {
-    soldiersCountEl.textContent = soldiers;
+    soldiersEl.textContent = soldiers;
     enemyHealthEl.textContent = enemyHealth;
+    recruitRateEl.textContent = recruitRate;
+    attackPowerEl.textContent = attackPower;
+    goldEl.textContent = gold;
+
+    upgradeRecruitCostEl.textContent = upgradeRecruitCost;
+    upgradeAttackCostEl.textContent = upgradeAttackCost;
+    upgradeGoldCostEl.textContent = upgradeGoldCost;
+
     attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
+    upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
+    upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
+    upgradeGoldBtn.disabled = gold < upgradeGoldCost;
+
+    buyShieldBtn.disabled = gold < 50 || shieldActive;
+    buyMedicBtn.disabled = gold < 100 || medicActive;
   }
 
-  function log(text) {
+  // Log helper
+  function logEvent(msg, color = '#ccc') {
     const p = document.createElement('p');
-    p.textContent = text;
-    logBox.prepend(p);
+    p.textContent = msg;
+    p.style.color = color;
+    logEl.prepend(p);
   }
 
-  recruitBtn.addEventListener('click', () => {
-    soldiers++;
-    log('Recruited 1 soldier.');
+  // Soldier recruitment every 5s + medic healing
+  setInterval(() => {
+    soldiers += recruitRate;
+    if (medicActive) {
+      soldiers += 2; // Medic heals 2 soldiers every 5s
+      logEvent('Medic tent healed 2 soldiers.', '#1abc9c');
+    }
+    logEvent(`Recruited ${recruitRate} soldiers.`);
     updateUI();
-  });
+  }, 5000);
 
-  attackBtn.addEventListener('click', () => {
+  // Random enemy attacks with shield & medic logic
+  setInterval(() => {
+    if (Math.random() < 0.3) {
+      if (shieldActive) {
+        logEvent('Shield absorbed enemy attack!', '#f1c40f');
+        shieldActive = false;
+        buyShieldBtn.disabled = false; // Allow buying again
+      } else if (soldiers > 0) {
+        const loss = Math.min(soldiers, Math.floor(Math.random() * 10) + 1);
+        soldiers -= loss;
+        logEvent(`Enemy attacked! Lost ${loss} soldiers.`, '#e74c3c');
+      } else {
+        logEvent('Enemy attacked, but no soldiers left!', '#e74c3c');
+      }
+      updateUI();
+    }
+  }, 7000);
+
+  // Attack enemy logic + animation flash
+  attackBtn.onclick = () => {
     if (soldiers >= 5 && enemyHealth > 0) {
       soldiers -= 5;
-      enemyHealth -= 10;
-      log('Attacked enemy for 10 damage.');
+      enemyHealth -= attackPower;
+      // Trigger enemy flash
+      enemyDiv.classList.add('attack-flash');
+      setTimeout(() => enemyDiv.classList.remove('attack-flash'), 500);
 
       if (enemyHealth <= 0) {
         enemyHealth = 0;
-        log('Enemy defeated! You win!');
-        alert('Victory! The enemy has been defeated!');
-        // Reset enemy health and reward soldiers
+        logEvent('Enemy defeated! +50 soldiers & gold.', '#2ecc71');
+        soldiers += 50;
+        gold += 10 * goldGain;
         enemyHealth = 100;
-        soldiers += 10;
-        log('You gained 10 soldiers as reward.');
+      } else {
+        logEvent('Enemy damaged!', '#f39c12');
       }
-
       updateUI();
     }
-  });
+  };
 
-  updateUI();
-</script>
+  // Upgrade recruit rate
+  upgradeRecruitBtn.onclick = () => {
+    if (soldiers >= upgradeRecruitCost) {
+      soldiers -= upgradeRecruitCost;
+      recruitRate++;
+      upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
+      logEvent('Recruit rate upgraded!', '#3498db');
+      updateUI();
+    }
+  };
 
-</body>
-</html>
+  // Upgrade attack power
+  upgradeAttackBtn.onclick = () => {
+    if (soldiers >= upgradeAttackCost) {
+      soldiers -= upgradeAttackCost;
+      attackPower += 5;
+      upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
+      logEvent('Attack power increased!', '#3498db');
+      updateUI();
+    }
+  };
+
+  // Upgrade gold gain
+  upgradeGoldBtn.onclick = () => {
+    if (gold >= upgradeGoldCost) {
+      gold -= upgradeGoldCost;
+      goldGain++;
+      upgradeGoldCost = Math.floor(upgradeGoldCost * 1.5);
+      logEvent('Gold gain multiplier increased!', '#3498db');
+      updateUI();
+    }
+  };
+
+  // Buy shield
+  buyShieldBtn.onclick = () => {
+    if (gold >= 50 && !shieldActive)
