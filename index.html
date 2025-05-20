@@ -303,3 +303,208 @@ function gameLoop(timestamp) {
   if (timestamp - lastEnemyAttackTime > enemyAttackInterval) {
     enemyAttack();
     lastEnemy
+// --- Continuation from previous code ---
+
+  lastEnemyAttackTime = timestamp;
+  }
+
+  // Clear canvas for redraw
+  ctx.clearRect(0, 0, width, height);
+
+  // Draw background battlefield (simple grid)
+  drawBattlefield();
+
+  // Draw soldiers animation
+  drawSoldiers();
+
+  // Draw enemy animation
+  drawEnemy();
+
+  // Draw UI overlays or effects if needed
+  drawEffects();
+
+  // Update frame indices for animation
+  updateAnimationFrames(delta);
+
+  lastFrameTime = timestamp;
+  requestAnimationFrame(gameLoop);
+}
+
+// Draw battlefield grid pattern
+function drawBattlefield() {
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  const gridSize = 40;
+  for(let x = 0; x < width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for(let y = 0; y < height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+}
+
+// Draw soldiers sprites in formation on left side
+function drawSoldiers() {
+  const cols = 8;
+  const spacingX = 50;
+  const spacingY = 55;
+  const startX = 50;
+  const startY = height - 250;
+
+  // Calculate how many soldiers to draw (max 40 for performance)
+  const drawCount = Math.min(soldiers, 40);
+  let frame = soldierFrames[soldierFrameIndex];
+
+  for (let i = 0; i < drawCount; i++) {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    let x = startX + col * spacingX;
+    let y = startY - row * spacingY;
+
+    // Simple bobbing animation by offsetting y slightly based on frame
+    let bobOffset = Math.sin(Date.now() / 200 + i) * 3;
+    ctx.drawImage(frame, x, y + bobOffset, 40, 40);
+  }
+}
+
+// Draw enemy sprites on right side with health bar
+function drawEnemy() {
+  const enemyX = width - 150;
+  const enemyY = height - 280;
+  let frame = enemyFrames[enemyFrameIndex];
+
+  ctx.drawImage(frame, enemyX, enemyY, 80, 80);
+
+  // Draw enemy health bar above enemy
+  const barWidth = 120;
+  const barHeight = 15;
+  const healthRatio = enemyHealth / maxEnemyHealth;
+
+  // Background bar
+  ctx.fillStyle = '#550000';
+  ctx.fillRect(enemyX - 20, enemyY - 25, barWidth, barHeight);
+
+  // Health bar fill
+  ctx.fillStyle = '#ff4444';
+  ctx.fillRect(enemyX - 20, enemyY - 25, barWidth * healthRatio, barHeight);
+
+  // Border
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(enemyX - 20, enemyY - 25, barWidth, barHeight);
+}
+
+// Optional visual effects placeholder
+function drawEffects() {
+  // For future flashes, explosions, or shield effect
+  if (shieldActive) {
+    // Draw glowing shield circle around soldiers
+    ctx.save();
+    ctx.strokeStyle = 'rgba(50, 200, 50, 0.7)';
+    ctx.lineWidth = 6;
+    ctx.shadowColor = '#0f0';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.ellipse(250, height - 170, 120, 80, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// Animate frame cycling for soldiers and enemies
+function updateAnimationFrames(delta) {
+  // Change frames every 200ms
+  if (!updateAnimationFrames.lastUpdate) updateAnimationFrames.lastUpdate = 0;
+
+  updateAnimationFrames.lastUpdate += delta;
+  if (updateAnimationFrames.lastUpdate > 200) {
+    soldierFrameIndex = (soldierFrameIndex + 1) % soldierFrames.length;
+    enemyFrameIndex = (enemyFrameIndex + 1) % enemyFrames.length;
+    updateAnimationFrames.lastUpdate = 0;
+  }
+}
+
+// Event listeners for buttons
+
+attackBtn.addEventListener('click', () => {
+  attackEnemy();
+});
+
+recruitBtn.addEventListener('click', () => {
+  // Optional manual recruit +1
+  soldiers++;
+  log('Manually recruited 1 soldier.');
+  updateUI();
+});
+
+upgradeRecruitBtn.addEventListener('click', () => {
+  upgradeRecruit();
+});
+
+upgradeAttackBtn.addEventListener('click', () => {
+  upgradeAttack();
+});
+
+upgradeGoldBtn.addEventListener('click', () => {
+  upgradeGold();
+});
+
+buyShieldBtn.addEventListener('click', () => {
+  buyShield();
+});
+
+buyMedicBtn.addEventListener('click', () => {
+  buyMedic();
+});
+
+// Reset Game Button (added dynamically)
+const resetBtn = document.createElement('button');
+resetBtn.textContent = 'Reset Game';
+resetBtn.style.marginTop = '20px';
+resetBtn.style.background = '#cc4444';
+resetBtn.style.color = '#fff';
+resetBtn.addEventListener('click', () => {
+  if(confirm('Are you sure you want to reset the game? All progress will be lost.')) {
+    resetGame();
+  }
+});
+document.getElementById('uiPanel').appendChild(resetBtn);
+
+// Reset game function
+function resetGame() {
+  soldiers = 0;
+  gold = 0;
+  enemyHealth = maxEnemyHealth;
+  recruitRate = 1;
+  attackPower = 10;
+  goldGain = 1;
+  shieldActive = false;
+  medicActive = false;
+  upgradeRecruitCost = 50;
+  upgradeAttackCost = 75;
+  upgradeGoldCost = 30;
+  logEl.innerHTML = '';
+  log('Game reset.');
+  updateUI();
+}
+
+// Initialize game assets then start
+loadAssets().then(() => {
+  log('Assets loaded. Starting game...');
+  updateUI();
+  enemyHealth = maxEnemyHealth;
+  requestAnimationFrame(gameLoop);
+}).catch(e => {
+  log('Error loading assets: ' + e.message);
+  alert('Failed to load game assets. Please refresh.');
+});
+
