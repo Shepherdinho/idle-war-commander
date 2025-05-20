@@ -507,4 +507,369 @@ loadAssets().then(() => {
   log('Error loading assets: ' + e.message);
   alert('Failed to load game assets. Please refresh.');
 });
+// --- Extended game variables for advanced features ---
+
+const enemyTypes = [
+  {
+    name: 'Goblin',
+    maxHealth: 100,
+    attackPower: 5,
+    spriteUrls: [
+      'https://i.imgur.com/QIGfVQa.gif',  // idle frames placeholder
+      'https://i.imgur.com/zZQbC0U.gif',
+    ],
+  },
+  {
+    name: 'Orc',
+    maxHealth: 300,
+    attackPower: 15,
+    spriteUrls: [
+      'https://i.imgur.com/2M9aMgz.gif', // orc idle frame 1
+      'https://i.imgur.com/Fo3XtNv.gif', // orc idle frame 2
+    ],
+  },
+  {
+    name: 'Troll',
+    maxHealth: 800,
+    attackPower: 40,
+    spriteUrls: [
+      'https://i.imgur.com/LU44Wjp.gif', // troll idle frame 1
+      'https://i.imgur.com/R14tLJS.gif', // troll idle frame 2
+    ],
+  }
+];
+
+// Soldier classes with stats and images
+const soldierClasses = {
+  infantry: {
+    name: 'Infantry',
+    baseAttack: 10,
+    baseDefense: 10,
+    recruitCost: 1,  // soldiers needed to recruit 1 infantry
+    spriteUrls: [
+      'https://i.imgur.com/5W9kSfs.gif',
+      'https://i.imgur.com/5W9kSfs2.gif',
+    ]
+  },
+  archer: {
+    name: 'Archer',
+    baseAttack: 15,
+    baseDefense: 5,
+    recruitCost: 3,
+    spriteUrls: [
+      'https://i.imgur.com/BV06O9h.gif',
+      'https://i.imgur.com/BV06O9h2.gif',
+    ]
+  },
+  cavalry: {
+    name: 'Cavalry',
+    baseAttack: 25,
+    baseDefense: 15,
+    recruitCost: 5,
+    spriteUrls: [
+      'https://i.imgur.com/GFk73ro.gif',
+      'https://i.imgur.com/GFk73ro2.gif',
+    ]
+  }
+};
+
+let currentEnemyIndex = 0;
+let currentEnemy = null;
+
+let soldierCountByClass = {
+  infantry: 0,
+  archer: 0,
+  cavalry: 0,
+};
+
+let soldierSprites = {};
+let enemySprites = [];
+
+let recruitQueue = [];  // queue for soldiers to recruit over time
+
+// Item system
+const items = {
+  shield: {
+    name: 'Shield',
+    costGold: 50,
+    cooldownMs: 30000,
+    active: false,
+    lastUsed: 0,
+    effect: function() {
+      shieldActive = true;
+      log('Shield activated! Next enemy attack absorbed.');
+    }
+  },
+  medicTent: {
+    name: 'Medic Tent',
+    costGold: 100,
+    cooldownMs: 60000,
+    active: false,
+    lastUsed: 0,
+    effect: function() {
+      medicActive = true;
+      log('Medic tent deployed. Healing soldiers over time.');
+    }
+  }
+};
+
+// Save/load keys
+const saveKey = 'idleWarCommanderSave';
+
+// Initialize enemy sprites cache
+async function loadEnemySprites() {
+  for(let enemy of enemyTypes) {
+    enemy.sprites = [];
+    for(let url of enemy.spriteUrls) {
+      const img = await loadImage(url);
+      enemy.sprites.push(img);
+    }
+  }
+}
+
+// Initialize soldier sprites cache
+async function loadSoldierSprites() {
+  for(let key in soldierClasses) {
+    soldierClasses[key].sprites = [];
+    for(let url of soldierClasses[key].spriteUrls) {
+      const img = await loadImage(url);
+      soldierClasses[key].sprites.push(img);
+    }
+  }
+}
+
+// Helper function to load image
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Failed to load image: ' + src));
+    img.src = src;
+  });
+}
+
+// Spawn enemy function
+function spawnEnemy(index) {
+  currentEnemyIndex = index;
+  currentEnemy = {
+    type: enemyTypes[index],
+    health: enemyTypes[index].maxHealth,
+    maxHealth: enemyTypes[index].maxHealth,
+    attackPower: enemyTypes[index].attackPower,
+    frameIndex: 0,
+    frameElapsed: 0,
+  };
+  enemyFrames = currentEnemy.type.sprites;
+  enemyFrameIndex = 0;
+  maxEnemyHealth = currentEnemy.maxHealth;
+  log(`Enemy Spawned: ${currentEnemy.type.name} (HP: ${currentEnemy.maxHealth})`);
+}
+
+// Recruit soldier class function (queues recruitment)
+function recruitSoldierClass(className, amount = 1) {
+  if (!soldierClasses[className]) return false;
+  let cost = soldierClasses[className].recruitCost * amount;
+  if (soldiers < cost) {
+    log(`Not enough soldiers to recruit ${amount} ${className}(s).`);
+    return false;
+  }
+  soldiers -= cost;
+  for(let i = 0; i < amount; i++) {
+    recruitQueue.push(className);
+  }
+  log(`Queued recruitment of ${amount} ${className}(s).`);
+  updateUI();
+  return true;
+}
+
+// Process recruit queue gradually
+function processRecruitQueue() {
+  if (recruitQueue.length > 0) {
+    // Recruit 1 soldier per tick
+    let className = recruitQueue.shift();
+    soldierCountByClass[className]++;
+    log(`Recruited 1 ${className}. Total: ${soldierCountByClass[className]}`);
+    updateUI();
+  }
+}
+
+// Calculate total soldier attack power dynamically
+function calculateTotalAttackPower() {
+  let total = 0;
+  for(let key in soldierCountByClass) {
+    total += soldierCountByClass[key] * soldierClasses[key].baseAttack;
+  }
+  return total + attackPower;
+}
+
+// Enemy AI attack
+function enemyAttack() {
+  if (!currentEnemy) return;
+
+  let now = Date.now();
+  if (now - lastEnemyAttackTime < 3000) return; // 3 sec cooldown
+
+  lastEnemyAttackTime = now;
+
+  if (shieldActive) {
+    shieldActive = false;
+    log('Shield absorbed enemy attack!');
+    return;
+  }
+
+  // Calculate damage to soldiers
+  let damage = currentEnemy.attackPower;
+
+  // Simple defense: subtract average soldier defense
+  let totalDefense = 0;
+  for(let key in soldierCountByClass) {
+    totalDefense += soldierCountByClass[key] * soldierClasses[key].baseDefense;
+  }
+  let totalSoldiers = Object.values(soldierCountByClass).reduce((a,b)=>a+b,0);
+
+  let avgDefense = totalSoldiers > 0 ? totalDefense / totalSoldiers : 0;
+  let netDamage = Math.max(0, damage - avgDefense);
+
+  if (netDamage > 0 && totalSoldiers > 0) {
+    // Remove soldiers proportionally from classes
+    for(let key in soldierCountByClass) {
+      if (soldierCountByClass[key] > 0) {
+        let loss = Math.min(soldierCountByClass[key], Math.ceil(netDamage * soldierCountByClass[key] / totalSoldiers));
+        soldierCountByClass[key] -= loss;
+        log(`Enemy attack! Lost ${loss} ${key}(s).`);
+      }
+    }
+  } else {
+    log('Enemy attack blocked by soldier defenses.');
+  }
+
+  updateUI();
+}
+
+// Player attacks enemy
+function playerAttack() {
+  let totalAttack = calculateTotalAttackPower();
+
+  currentEnemy.health -= totalAttack;
+
+  log(`You attacked enemy for ${totalAttack} damage!`);
+
+  if (currentEnemy.health <= 0) {
+    enemyDefeated();
+  }
+
+  updateUI();
+}
+
+// Enemy defeated handler
+function enemyDefeated() {
+  log(`Enemy ${currentEnemy.type.name} defeated!`);
+  gold += currentEnemy.type.maxHealth / 10 * goldGain;
+  soldiers += 10 * recruitRate;
+
+  // Advance to next enemy or loop back
+  currentEnemyIndex++;
+  if (currentEnemyIndex >= enemyTypes.length) {
+    currentEnemyIndex = 0;
+  }
+  spawnEnemy(currentEnemyIndex);
+  updateUI();
+}
+
+// Item purchase handler
+function buyItem(itemName) {
+  if (!items[itemName]) return;
+  let item = items[itemName];
+  if (gold < item.costGold) {
+    log(`Not enough gold to buy ${item.name}.`);
+    return false;
+  }
+  if (Date.now() - item.lastUsed < item.cooldownMs) {
+    log(`${item.name} is on cooldown.`);
+    return false;
+  }
+  gold -= item.costGold;
+  item.lastUsed = Date.now();
+  item.effect();
+  updateUI();
+  return true;
+}
+
+// Save game state to localStorage
+function saveGame() {
+  let state = {
+    soldiers,
+    soldierCountByClass,
+    gold,
+    currentEnemyIndex,
+    currentEnemyHealth: currentEnemy ? currentEnemy.health : maxEnemyHealth,
+    recruitRate,
+    attackPower,
+    goldGain,
+    shieldActive,
+    medicActive,
+    recruitQueue,
+    lastSave: Date.now(),
+  };
+  localStorage.setItem(saveKey, JSON.stringify(state));
+  log('Game saved.');
+}
+
+// Load game state from localStorage
+function loadGame() {
+  let stateStr = localStorage.getItem(saveKey);
+  if (!stateStr) {
+    log('No saved game found.');
+    return false;
+  }
+  try {
+    let state = JSON.parse(stateStr);
+    soldiers = state.soldiers || 0;
+    soldierCountByClass = state.soldierCountByClass || { infantry:0, archer:0, cavalry:0 };
+    gold = state.gold || 0;
+    currentEnemyIndex = state.currentEnemyIndex || 0;
+    recruitRate = state.recruitRate || 1;
+    attackPower = state.attackPower || 10;
+    goldGain = state.goldGain || 1;
+    shieldActive = state.shieldActive || false;
+    medicActive = state.medicActive || false;
+    recruitQueue = state.recruitQueue || [];
+    spawnEnemy(currentEnemyIndex);
+    currentEnemy.health = state.currentEnemyHealth || currentEnemy.maxHealth;
+    updateUI();
+    log('Game loaded.');
+    return true;
+  } catch (e) {
+    log('Failed to load saved game.');
+    return false;
+  }
+}
+
+// Game tick to update state every 5 seconds
+function gameTick() {
+  soldiers += recruitRate;
+  if (medicActive) {
+    soldiers += 2; // Medic heals 2 soldiers per tick
+    log('Medic healed 2 soldiers.');
+  }
+  processRecruitQueue();
+  enemyAttack();
+
+  saveGame();
+
+  updateUI();
+}
+
+// Set game tick interval
+setInterval(gameTick, recruitIntervalMs);
+
+// UI Setup for soldier classes recruit buttons
+function setupSoldierClassUI() {
+  const container = document.getElementById('soldierClassButtons');
+  if (!container) return;
+  container.innerHTML = ''; // clear existing buttons
+
+  for (let key in soldierClasses) {
+    const btn = document.createElement('button');
+    btn.textContent = `Recruit ${soldierClasses[key].name} (Cost: ${soldierClasses[key
 
