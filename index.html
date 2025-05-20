@@ -872,4 +872,328 @@ function setupSoldierClassUI() {
   for (let key in soldierClasses) {
     const btn = document.createElement('button');
     btn.textContent = `Recruit ${soldierClasses[key].name} (Cost: ${soldierClasses[key
+// --- Continuing soldier recruit buttons creation ---
+
+    recruitCost})`;
+    btn.onclick = () => {
+      recruitSoldierClass(key, 1);
+    };
+    container.appendChild(btn);
+  }
+}
+
+// Animate enemy sprite frames for idle animation
+function animateEnemySprite(deltaTime) {
+  if (!currentEnemy) return;
+  currentEnemy.frameElapsed += deltaTime;
+  if (currentEnemy.frameElapsed > 500) { // switch frame every 0.5 seconds
+    currentEnemy.frameIndex = (currentEnemy.frameIndex + 1) % currentEnemy.type.sprites.length;
+    currentEnemy.frameElapsed = 0;
+  }
+}
+
+// Animate soldier sprites for idle animation
+function animateSoldierSprites(deltaTime) {
+  for (let key in soldierCountByClass) {
+    if (!soldierClasses[key].frameElapsed) soldierClasses[key].frameElapsed = 0;
+    if (!soldierClasses[key].frameIndex) soldierClasses[key].frameIndex = 0;
+    soldierClasses[key].frameElapsed += deltaTime;
+    if (soldierClasses[key].frameElapsed > 700) { // switch frame every 0.7 seconds
+      soldierClasses[key].frameIndex = (soldierClasses[key].frameIndex + 1) % soldierClasses[key].sprites.length;
+      soldierClasses[key].frameElapsed = 0;
+    }
+  }
+}
+
+// Draw function to render game elements on canvas
+function drawGame() {
+  const canvas = document.getElementById('gameCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw enemy
+  if (currentEnemy && currentEnemy.type.sprites.length > 0) {
+    let sprite = currentEnemy.type.sprites[currentEnemy.frameIndex];
+    ctx.drawImage(sprite, canvas.width/2 - sprite.width/2, 50);
+  }
+
+  // Draw enemy health bar
+  if (currentEnemy) {
+    const barWidth = 300;
+    const barHeight = 20;
+    const x = canvas.width/2 - barWidth/2;
+    const y = 20;
+
+    ctx.fillStyle = 'gray';
+    ctx.fillRect(x, y, barWidth, barHeight);
+
+    const healthPercent = Math.max(0, currentEnemy.health / currentEnemy.maxHealth);
+    ctx.fillStyle = 'red';
+    ctx.fillRect(x, y, barWidth * healthPercent, barHeight);
+
+    ctx.strokeStyle = 'black';
+    ctx.strokeRect(x, y, barWidth, barHeight);
+
+    ctx.fillStyle = 'black';
+    ctx.font = '16px Arial';
+    ctx.fillText(`${currentEnemy.type.name} HP: ${Math.floor(currentEnemy.health)} / ${currentEnemy.maxHealth}`, x + 10, y + 15);
+  }
+
+  // Draw soldiers count and sprites
+  let baseY = canvas.height - 150;
+  let startX = 50;
+  let spacingX = 150;
+  let idx = 0;
+  ctx.font = '18px Arial';
+
+  for (let key in soldierCountByClass) {
+    let count = soldierCountByClass[key];
+    if (count > 0 && soldierClasses[key].sprites.length > 0) {
+      let spriteIndex = soldierClasses[key].frameIndex || 0;
+      let sprite = soldierClasses[key].sprites[spriteIndex];
+      let x = startX + spacingX * idx;
+      let y = baseY;
+
+      ctx.drawImage(sprite, x, y);
+
+      ctx.fillStyle = 'black';
+      ctx.fillText(`${soldierClasses[key].name}: ${count}`, x, y + sprite.height + 20);
+    }
+    idx++;
+  }
+
+  // Draw gold and soldiers text
+  ctx.fillStyle = 'black';
+  ctx.font = '22px Arial';
+  ctx.fillText(`Gold: ${Math.floor(gold)}`, 20, 40);
+  ctx.fillText(`Soldiers (total): ${getTotalSoldiers()}`, 20, 70);
+
+  // Draw recruit queue
+  ctx.font = '16px Arial';
+  ctx.fillStyle = 'darkblue';
+  ctx.fillText(`Recruit Queue: ${recruitQueue.length}`, 20, 100);
+
+  // Draw item cooldowns
+  let itemX = canvas.width - 150;
+  let itemY = 40;
+  for (let key in items) {
+    let item = items[key];
+    ctx.fillStyle = 'black';
+    ctx.fillText(`${item.name}`, itemX, itemY);
+
+    let cooldownLeft = Math.max(0, item.cooldownMs - (Date.now() - item.lastUsed));
+    if (cooldownLeft > 0) {
+      ctx.fillStyle = 'red';
+      ctx.fillText(`Cooldown: ${(cooldownLeft / 1000).toFixed(1)}s`, itemX, itemY + 20);
+    } else {
+      ctx.fillStyle = 'green';
+      ctx.fillText(`Ready!`, itemX, itemY + 20);
+    }
+
+    itemY += 50;
+  }
+}
+
+// Helper to get total soldiers count
+function getTotalSoldiers() {
+  return Object.values(soldierCountByClass).reduce((a, b) => a + b, 0);
+}
+
+// Game loop using requestAnimationFrame
+let lastTime = 0;
+function gameLoop(time = 0) {
+  const deltaTime = time - lastTime;
+  lastTime = time;
+
+  animateEnemySprite(deltaTime);
+  animateSoldierSprites(deltaTime);
+  drawGame();
+
+  requestAnimationFrame(gameLoop);
+}
+
+// Start game loop
+requestAnimationFrame(gameLoop);
+
+// Log messages to a dedicated UI element
+function log(message) {
+  const logArea = document.getElementById('logArea');
+  if (!logArea) return;
+  let p = document.createElement('p');
+  p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  logArea.appendChild(p);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+// Setup item purchase buttons UI
+function setupItemButtons() {
+  const container = document.getElementById('itemButtons');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let key in items) {
+    let item = items[key];
+    let btn = document.createElement('button');
+    btn.textContent = `Buy ${item.name} (${item.costGold} gold)`;
+    btn.onclick = () => buyItem(key);
+    container.appendChild(btn);
+  }
+}
+
+// Upgrade system - simple upgrades for attackPower, recruitRate, goldGain
+
+const upgrades = {
+  attackPower: {
+    level: 0,
+    baseCost: 100,
+    increment: 20,
+    maxLevel: 10,
+    applyUpgrade: () => {
+      attackPower += 5;
+    }
+  },
+  recruitRate: {
+    level: 0,
+    baseCost: 150,
+    increment: 30,
+    maxLevel: 10,
+    applyUpgrade: () => {
+      recruitRate += 1;
+    }
+  },
+  goldGain: {
+    level: 0,
+    baseCost: 120,
+    increment: 25,
+    maxLevel: 10,
+    applyUpgrade: () => {
+      goldGain += 0.5;
+    }
+  }
+};
+
+// Purchase upgrade function
+function buyUpgrade(upgradeKey) {
+  let upg = upgrades[upgradeKey];
+  if (!upg) return false;
+  if (upg.level >= upg.maxLevel) {
+    log(`${upgradeKey} upgrade is maxed out.`);
+    return false;
+  }
+  let cost = upg.baseCost + upg.level * upg.increment;
+  if (gold < cost) {
+    log(`Not enough gold to upgrade ${upgradeKey}. Need ${cost} gold.`);
+    return false;
+  }
+  gold -= cost;
+  upg.level++;
+  upg.applyUpgrade();
+  log(`Upgraded ${upgradeKey} to level ${upg.level}.`);
+  updateUI();
+  return true;
+}
+
+// Setup upgrade buttons UI
+function setupUpgradeButtons() {
+  const container = document.getElementById('upgradeButtons');
+  if (!container) return;
+  container.innerHTML = '';
+
+  for (let key in upgrades) {
+    let upg = upgrades[key];
+    let btn = document.createElement('button');
+    let cost = upg.baseCost + upg.level * upg.increment;
+    btn.textContent = `${key} Upgrade (Lvl ${upg.level}) - Cost: ${cost} gold`;
+    btn.onclick = () => buyUpgrade(key);
+    container.appendChild(btn);
+  }
+}
+
+// Update UI elements with current game data
+function updateUI() {
+  // Update soldiers total display
+  const soldierCountText = document.getElementById('soldierCountText');
+  if (soldierCountText) soldierCountText.textContent = `Soldiers: ${getTotalSoldiers()}`;
+
+  // Update gold display
+  const goldCountText = document.getElementById('goldCountText');
+  if (goldCountText) goldCountText.textContent = `Gold: ${Math.floor(gold)}`;
+
+  // Update recruit queue count
+  const recruitQueueText = document.getElementById('recruitQueueText');
+  if (recruitQueueText) recruitQueueText.textContent = `Recruit Queue: ${recruitQueue.length}`;
+
+  // Update upgrade buttons UI cost and labels
+  setupUpgradeButtons();
+}
+
+// Attach UI button handlers for player attack and recruit soldier mass
+document.getElementById('attackEnemyBtn').onclick = playerAttack;
+document.getElementById('recruitInfantryBtn').onclick = () => recruitSoldierClass('infantry', 5);
+document.getElementById('recruitArcherBtn').onclick = () => recruitSoldierClass('archer', 3);
+document.getElementById('recruitCavalryBtn').onclick = () => recruitSoldierClass('cavalry', 2);
+
+setupSoldierClassUI();
+setupItemButtons();
+setupUpgradeButtons();
+
+spawnEnemy(currentEnemyIndex);
+updateUI();
+
+// Sound effects - placeholder
+const soundEffects = {
+  attack: new Audio('https://actions.google.com/sounds/v1/impacts/metal_thud_and_wood_plank.ogg'),
+  enemyDefeated: new Audio('https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg'),
+  recruit: new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg')
+};
+
+function playSound(name) {
+  if (soundEffects[name]) {
+    soundEffects[name].currentTime = 0;
+    soundEffects[name].play();
+  }
+}
+
+// Override playerAttack to play sound
+function playerAttack() {
+  let totalAttack = calculateTotalAttackPower();
+
+  if (!currentEnemy) return;
+
+  currentEnemy.health -= totalAttack;
+  log(`You attacked enemy for ${totalAttack} damage!`);
+  playSound('attack');
+
+  if (currentEnemy.health <= 0) {
+    playSound('enemyDefeated');
+    enemyDefeated();
+  }
+
+  updateUI();
+}
+
+// Override recruitSoldierClass to play recruit sound
+function recruitSoldierClass(className, amount = 1) {
+  if (!soldierClasses[className]) return false;
+  let cost = soldierClasses[className].recruitCost * amount;
+  if (soldiers < cost) {
+    log(`Not enough soldiers to recruit ${amount} ${className}(s).`);
+    return false;
+  }
+  soldiers -= cost;
+  for(let i = 0; i < amount; i++) {
+    recruitQueue.push(className);
+  }
+  log(`Queued recruitment of ${amount} ${className}(s).`);
+  playSound('recruit');
+  updateUI();
+  return true;
+}
+
+// Initialize save/load buttons UI and handlers
+document.getElementById('saveGameBtn').onclick = saveGame;
+document.getElementById('loadGameBtn').onclick = loadGame;
+
 
