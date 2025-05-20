@@ -2028,6 +2028,501 @@ let gearAttackBonus = 0;
 let gearDefenseBonus = 0;
 let totalAttackPower = baseAttackPower;
 let totalDefensePower = baseDefensePower;
+// ==========================
+// Soldier Level & Experience
+// ==========================
+
+// Soldier classes experience and levels
+let soldierXPByClass = {
+  infantry: 0,
+  archer: 0,
+  cavalry: 0
+};
+
+let soldierLevelByClass = {
+  infantry: 1,
+  archer: 1,
+  cavalry: 1
+};
+
+// XP required for next level (simple formula)
+function getXPForNextLevel(level) {
+  return 100 + (level - 1) * 50;
+}
+
+// Add XP to soldier class
+function addSoldierXP(className, amount) {
+  if (!soldierXPByClass.hasOwnProperty(className)) return;
+  soldierXPByClass[className] += amount;
+  checkSoldierLevelUp(className);
+  updateSoldierXPUI(className);
+}
+
+// Check if soldier class can level up
+function checkSoldierLevelUp(className) {
+  let currentXP = soldierXPByClass[className];
+  let currentLevel = soldierLevelByClass[className];
+  let xpNeeded = getXPForNextLevel(currentLevel);
+  while (currentXP >= xpNeeded) {
+    soldierLevelByClass[className]++;
+    soldierXPByClass[className] -= xpNeeded;
+    currentXP = soldierXPByClass[className];
+    xpNeeded = getXPForNextLevel(soldierLevelByClass[className]);
+    log(`${className.charAt(0).toUpperCase() + className.slice(1)} leveled up to level ${soldierLevelByClass[className]}!`);
+    addFeedback(`${className} leveled up!`, 300, 400, 'gold');
+    enhanceSoldierStats(className);
+  }
+}
+
+// Enhance soldier stats on level up
+function enhanceSoldierStats(className) {
+  switch (className) {
+    case 'infantry':
+      baseAttackPower += 2;
+      baseDefensePower += 3;
+      break;
+    case 'archer':
+      baseAttackPower += 3;
+      baseDefensePower += 1;
+      break;
+    case 'cavalry':
+      baseAttackPower += 4;
+      baseDefensePower += 2;
+      break;
+  }
+  updateUI();
+}
+
+// =======================
+// Soldier XP UI Handling
+// =======================
+
+function updateSoldierXPUI(className) {
+  let xpBar = document.getElementById(`${className}XPBar`);
+  let levelLabel = document.getElementById(`${className}LevelLabel`);
+  if (!xpBar || !levelLabel) return;
+
+  let currentXP = soldierXPByClass[className];
+  let currentLevel = soldierLevelByClass[className];
+  let xpNeeded = getXPForNextLevel(currentLevel);
+
+  let percent = Math.min(100, (currentXP / xpNeeded) * 100);
+  xpBar.style.width = percent + '%';
+  levelLabel.textContent = `Lvl: ${currentLevel}`;
+}
+
+// =======================
+// Commander Skills System
+// =======================
+
+// Skill definitions
+const commanderSkills = [
+  {
+    id: 1,
+    name: "Inspire Troops",
+    description: "Increases all soldier attack by 10%.",
+    levelRequired: 1,
+    maxLevel: 5,
+    currentLevel: 0,
+    attackBonusPerLevel: 0.1,
+    defenseBonusPerLevel: 0
+  },
+  {
+    id: 2,
+    name: "Shield Wall",
+    description: "Increases all soldier defense by 15%.",
+    levelRequired: 3,
+    maxLevel: 3,
+    currentLevel: 0,
+    attackBonusPerLevel: 0,
+    defenseBonusPerLevel: 0.15
+  },
+  {
+    id: 3,
+    name: "Rapid Deployment",
+    description: "Decreases soldier training time by 20%.",
+    levelRequired: 2,
+    maxLevel: 3,
+    currentLevel: 0
+  }
+];
+
+// Player skill points and commander level
+let commanderLevel = 1;
+let skillPoints = 0;
+
+// Gain skill points on commander level up
+function gainSkillPoints(amount) {
+  skillPoints += amount;
+  updateSkillPointsUI();
+}
+
+// Level up commander
+function levelUpCommander() {
+  commanderLevel++;
+  skillPoints += 2;
+  log(`Commander leveled up to level ${commanderLevel}! You gained 2 skill points.`);
+  updateSkillPointsUI();
+  updateCommanderLevelUI();
+}
+
+// Upgrade a skill
+function upgradeSkill(skillId) {
+  let skill = commanderSkills.find(s => s.id === skillId);
+  if (!skill) return false;
+  if (skill.currentLevel >= skill.maxLevel) {
+    log(`${skill.name} is already at max level.`);
+    return false;
+  }
+  if (skill.levelRequired > commanderLevel) {
+    log(`Commander level too low to upgrade ${skill.name}.`);
+    return false;
+  }
+  if (skillPoints <= 0) {
+    log("Not enough skill points.");
+    return false;
+  }
+  skill.currentLevel++;
+  skillPoints--;
+  log(`Upgraded skill: ${skill.name} to level ${skill.currentLevel}`);
+  updateSkillPointsUI();
+  applySkillBonuses();
+  updateSkillsUI();
+  return true;
+}
+
+// Apply skill bonuses to player stats
+function applySkillBonuses() {
+  let attackMultiplier = 1;
+  let defenseMultiplier = 1;
+  commanderSkills.forEach(skill => {
+    if (skill.currentLevel > 0) {
+      attackMultiplier += (skill.attackBonusPerLevel || 0) * skill.currentLevel;
+      defenseMultiplier += (skill.defenseBonusPerLevel || 0) * skill.currentLevel;
+    }
+  });
+  totalAttackPower = Math.floor(totalAttackPower * attackMultiplier);
+  totalDefensePower = Math.floor(totalDefensePower * defenseMultiplier);
+  updateUI();
+}
+
+// ==========================
+// Skills UI Setup & Update
+// ==========================
+
+function setupSkillsUI() {
+  const skillsContainer = document.getElementById('skillsList');
+  if (!skillsContainer) return;
+  skillsContainer.innerHTML = '';
+
+  commanderSkills.forEach(skill => {
+    let skillDiv = document.createElement('div');
+    skillDiv.className = 'skill-entry';
+
+    let skillName = document.createElement('h4');
+    skillName.textContent = skill.name + ` (Lvl ${skill.currentLevel}/${skill.maxLevel})`;
+    skillDiv.appendChild(skillName);
+
+    let skillDesc = document.createElement('p');
+    skillDesc.textContent = skill.description;
+    skillDiv.appendChild(skillDesc);
+
+    let upgradeBtn = document.createElement('button');
+    upgradeBtn.textContent = 'Upgrade';
+    upgradeBtn.disabled = (skill.currentLevel >= skill.maxLevel || skill.levelRequired > commanderLevel || skillPoints <= 0);
+    upgradeBtn.onclick = () => {
+      upgradeSkill(skill.id);
+      setupSkillsUI(); // Refresh UI after upgrade
+    };
+    skillDiv.appendChild(upgradeBtn);
+
+    skillsContainer.appendChild(skillDiv);
+  });
+}
+
+function updateSkillPointsUI() {
+  let spLabel = document.getElementById('skillPointsLabel');
+  if (!spLabel) return;
+  spLabel.textContent = `Skill Points: ${skillPoints}`;
+}
+
+function updateCommanderLevelUI() {
+  let clLabel = document.getElementById('commanderLevelLabel');
+  if (!clLabel) return;
+  clLabel.textContent = `Commander Level: ${commanderLevel}`;
+}
+
+// ======================
+// Enemy Wave & Spawning
+// ======================
+
+let enemyWaves = [
+  {
+    waveNumber: 1,
+    enemies: [
+      { type: 'grunt', count: 10 },
+      { type: 'archer', count: 5 }
+    ]
+  },
+  {
+    waveNumber: 2,
+    enemies: [
+      { type: 'grunt', count: 20 },
+      { type: 'archer', count: 10 },
+      { type: 'cavalry', count: 3 }
+    ]
+  },
+  {
+    waveNumber: 3,
+    enemies: [
+      { type: 'grunt', count: 30 },
+      { type: 'archer', count: 15 },
+      { type: 'cavalry', count: 10 },
+      { type: 'elite', count: 2 }
+    ]
+  }
+];
+
+let currentWaveIndex = 0;
+let activeEnemies = [];
+
+// Enemy definitions
+const enemyTypes = {
+  grunt: { name: "Grunt", attackPower: 5, defensePower: 3, health: 30 },
+  archer: { name: "Enemy Archer", attackPower: 7, defensePower: 2, health: 20 },
+  cavalry: { name: "Enemy Cavalry", attackPower: 10, defensePower: 5, health: 50 },
+  elite: { name: "Elite Soldier", attackPower: 20, defensePower: 10, health: 100 }
+};
+
+// Spawn next wave
+function spawnNextWave() {
+  if (currentWaveIndex >= enemyWaves.length) {
+    log("All waves cleared! You win!");
+    addFeedback("Victory!", 400, 300, 'lime');
+    return;
+  }
+
+  activeEnemies = [];
+  let wave = enemyWaves[currentWaveIndex];
+  log(`Spawning Wave ${wave.waveNumber}`);
+
+  wave.enemies.forEach(enemyGroup => {
+    for (let i = 0; i < enemyGroup.count; i++) {
+      let enemyData = enemyTypes[enemyGroup.type];
+      if (!enemyData) continue;
+      let enemyInstance = {
+        id: generateUniqueId(),
+        type: enemyGroup.type,
+        health: enemyData.health,
+        attackPower: enemyData.attackPower,
+        defensePower: enemyData.defensePower,
+        name: enemyData.name
+      };
+      activeEnemies.push(enemyInstance);
+    }
+  });
+
+  currentWaveIndex++;
+  updateEnemyUI();
+}
+
+// Unique ID generator for enemies
+function generateUniqueId() {
+  return 'enemy-' + Math.random().toString(36).substr(2, 9);
+}
+
+// ====================
+// Enemy UI Updates
+// ====================
+
+function updateEnemyUI() {
+  const enemyContainer = document.getElementById('enemyList');
+  if (!enemyContainer) return;
+
+  enemyContainer.innerHTML = '';
+  if (activeEnemies.length === 0) {
+    enemyContainer.textContent = "No active enemies.";
+    return;
+  }
+
+  activeEnemies.forEach(enemy => {
+    let div = document.createElement('div');
+    div.className = 'enemy-entry';
+    div.textContent = `${enemy.name} (HP: ${enemy.health})`;
+    enemyContainer.appendChild(div);
+  });
+}
+
+// ====================
+// Combat & Enemy Logic
+// ====================
+
+// Player attack on enemies
+function playerAttack() {
+  if (activeEnemies.length === 0) {
+    log("No enemies to attack.");
+    return;
+  }
+
+  let attackPower = calculateTotalAttackPower();
+  let target = activeEnemies[0]; // attack first enemy for now
+
+  target.health -= attackPower;
+  log(`Attacked ${target.name} for ${attackPower} damage.`);
+
+  if (target.health <= 0) {
+    log(`${target.name} defeated!`);
+    addFeedback(`+XP`, 300, 350, 'yellow');
+    grantXPToSoldiers(10);
+    activeEnemies.shift();
+  }
+
+  if (activeEnemies.length === 0) {
+    log("Wave cleared!");
+    addFeedback("Wave Cleared!", 400, 300, 'lime');
+    spawnNextWave();
+  } else {
+    enemyAttack();
+  }
+
+  updateEnemyUI();
+  updateUI();
+}
+
+// Grant XP to all soldier classes after enemy defeat
+function grantXPToSoldiers(amount) {
+  for (let className in soldierXPByClass) {
+    addSoldierXP(className, amount);
+  }
+}
+
+// ===================
+// Save / Load System
+// ===================
+
+// Save game state to localStorage
+function saveGame() {
+  let saveData = {
+    playerInventory,
+    equippedGear,
+    craftingMaterials,
+    soldierXPByClass,
+    soldierLevelByClass,
+    commanderLevel,
+    skillPoints,
+    commanderSkills,
+    currentWaveIndex,
+    activeEnemies,
+    baseAttackPower,
+    baseDefensePower,
+    prestigePoints,
+    soldierCountByClass
+  };
+
+  localStorage.setItem('idleWarCommanderSave', JSON.stringify(saveData));
+  log("Game saved.");
+}
+
+// Load game state from localStorage
+function loadGame() {
+  let savedData = localStorage.getItem('idleWarCommanderSave');
+  if (!savedData) {
+    log("No saved game found.");
+    return;
+  }
+  try {
+    let saveData = JSON.parse(savedData);
+    playerInventory = saveData.playerInventory || [];
+    equippedGear = saveData.equippedGear || { weapon: null, armor: null, accessory: null };
+    craftingMaterials = saveData.craftingMaterials || craftingMaterials;
+    soldierXPByClass = saveData.soldierXPByClass || soldierXPByClass;
+    soldierLevelByClass = saveData.soldierLevelByClass || soldierLevelByClass;
+    commanderLevel = saveData.commanderLevel || 1;
+    skillPoints = saveData.skillPoints || 0;
+    commanderSkills.forEach(skill => {
+      let savedSkill = saveData.commanderSkills.find(s => s.id === skill.id);
+      if (savedSkill) skill.currentLevel = savedSkill.currentLevel || 0;
+    });
+    currentWaveIndex = saveData.currentWaveIndex || 0;
+    activeEnemies = saveData.activeEnemies || [];
+    baseAttackPower = saveData.baseAttackPower || 10;
+    baseDefensePower = saveData.baseDefensePower || 5;
+    prestigePoints = saveData.prestigePoints || 0;
+    soldierCountByClass = saveData.soldierCountByClass || soldierCountByClass;
+
+    log("Game loaded.");
+    updateUI();
+    updateEnemyUI();
+    updateInventoryUI();
+    updateGearUI();
+    updateMaterialsUI();
+    setupSkillsUI();
+    updateSkillPointsUI();
+    updateCommanderLevelUI();
+  } catch (e) {
+    log("Failed to load saved game.");
+  }
+}
+
+// =====================
+// UI Setup for Save/Load
+// =====================
+
+function setupSaveLoadUI() {
+  const saveBtn = document.getElementById('saveGameBtn');
+  const loadBtn = document.getElementById('loadGameBtn');
+  if (saveBtn) saveBtn.onclick = saveGame;
+  if (loadBtn) loadBtn.onclick = loadGame;
+}
+
+// ========================
+// Setup all UI components
+// ========================
+
+function setupUI() {
+  setupSoldierClassUI();
+  setupItemButtons();
+  setupUpgradeButtons();
+  setupSkillsUI();
+  setupSaveLoadUI();
+  setupFormationUI();
+  updateUI();
+}
+
+// ========================
+// Enhanced UI Updates
+// ========================
+
+function updateUI() {
+  updateSoldierXPUI('infantry');
+  updateSoldierXPUI('archer');
+  updateSoldierXPUI('cavalry');
+  updateInventoryUI();
+  updateGearUI();
+  updateMaterialsUI();
+  updateSkillPointsUI();
+  updateCommanderLevelUI();
+  updateEnemyUI();
+  updateAttackDefenseLabels();
+  highlightSelectedFormation(currentFormation);
+}
+
+function updateAttackDefenseLabels() {
+  const attackLabel = document.getElementById('attackPowerLabel');
+  const defenseLabel = document.getElementById('defensePowerLabel');
+  if (attackLabel) attackLabel.textContent = `Attack Power: ${totalAttackPower}`;
+  if (defenseLabel) defenseLabel.textContent = `Defense Power: ${totalDefensePower}`;
+}
+
+// ===================
+// Initialization
+// ===================
+
+window.onload = () => {
+  initGame();
+  setupUI();
+  log("Game fully loaded.");
+};
 
 
 
