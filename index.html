@@ -1619,4 +1619,415 @@ function initGame() {
 }
 
 window.onload = initGame;
+// ========================
+// Item & Gear System Setup
+// ========================
+
+// Define item types
+const itemTypes = {
+  weapon: 'weapon',
+  armor: 'armor',
+  accessory: 'accessory'
+};
+
+// Example item database
+const itemDatabase = [
+  {
+    id: 1,
+    name: "Iron Sword",
+    type: itemTypes.weapon,
+    attackBonus: 10,
+    defenseBonus: 0,
+    rarity: "common",
+    craftingMaterials: { iron: 5, wood: 2 },
+    description: "Basic iron sword that adds +10 attack."
+  },
+  {
+    id: 2,
+    name: "Steel Shield",
+    type: itemTypes.armor,
+    attackBonus: 0,
+    defenseBonus: 15,
+    rarity: "uncommon",
+    craftingMaterials: { steel: 10, leather: 5 },
+    description: "Shield that increases defense by 15."
+  },
+  {
+    id: 3,
+    name: "Ring of Swiftness",
+    type: itemTypes.accessory,
+    attackBonus: 5,
+    defenseBonus: 5,
+    rarity: "rare",
+    craftingMaterials: { gold: 2, gem: 1 },
+    description: "Accessory that boosts attack and defense by 5."
+  }
+];
+
+// Player inventory and equipped gear
+let playerInventory = [];
+let equippedGear = {
+  weapon: null,
+  armor: null,
+  accessory: null
+};
+
+// Crafting materials player owns
+let craftingMaterials = {
+  iron: 20,
+  wood: 10,
+  steel: 15,
+  leather: 10,
+  gold: 5,
+  gem: 2
+};
+
+// =========================
+// Crafting System Functions
+// =========================
+
+// Check if player has materials to craft item
+function canCraft(item) {
+  if (!item.craftingMaterials) return false;
+  for (let mat in item.craftingMaterials) {
+    if ((craftingMaterials[mat] || 0) < item.craftingMaterials[mat]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Craft item: consume materials and add to inventory
+function craftItem(itemId) {
+  let item = itemDatabase.find(i => i.id === itemId);
+  if (!item) {
+    log("Item not found.");
+    return false;
+  }
+  if (!canCraft(item)) {
+    log("Not enough materials to craft " + item.name);
+    return false;
+  }
+  // Consume materials
+  for (let mat in item.craftingMaterials) {
+    craftingMaterials[mat] -= item.craftingMaterials[mat];
+  }
+  // Add item to inventory
+  playerInventory.push(item);
+  log(`Crafted item: ${item.name}`);
+  updateInventoryUI();
+  updateMaterialsUI();
+  return true;
+}
+
+// =======================
+// Equipment Management
+// =======================
+
+// Equip item by type; returns false if invalid
+function equipItem(itemId) {
+  let item = playerInventory.find(i => i.id === itemId);
+  if (!item) {
+    log("Item not found in inventory.");
+    return false;
+  }
+  let slot = item.type;
+  if (!slot) {
+    log("Item has invalid type.");
+    return false;
+  }
+  equippedGear[slot] = item;
+  log(`Equipped ${item.name} in ${slot} slot.`);
+  updateGearUI();
+  updateStatsFromGear();
+  return true;
+}
+
+// Unequip item from slot
+function unequipItem(slot) {
+  if (!equippedGear[slot]) {
+    log(`No item equipped in ${slot} slot.`);
+    return false;
+  }
+  playerInventory.push(equippedGear[slot]);
+  equippedGear[slot] = null;
+  log(`Unequipped item from ${slot} slot.`);
+  updateGearUI();
+  updateStatsFromGear();
+  return true;
+}
+
+// Update player's stats based on gear equipped
+function updateStatsFromGear() {
+  let weaponAttack = equippedGear.weapon ? equippedGear.weapon.attackBonus : 0;
+  let armorDefense = equippedGear.armor ? equippedGear.armor.defenseBonus : 0;
+  let accessoryAttack = equippedGear.accessory ? equippedGear.accessory.attackBonus : 0;
+  let accessoryDefense = equippedGear.accessory ? equippedGear.accessory.defenseBonus : 0;
+
+  gearAttackBonus = weaponAttack + accessoryAttack;
+  gearDefenseBonus = armorDefense + accessoryDefense;
+
+  // Recalculate total attack and defense stats
+  totalAttackPower = baseAttackPower + gearAttackBonus + (prestigePoints * 5);
+  totalDefensePower = baseDefensePower + gearDefenseBonus + (prestigePoints * 3);
+
+  updateUI();
+}
+
+// ======================
+// Soldier Formation System
+// ======================
+
+// Define formations
+const formations = {
+  line: 'line',
+  wedge: 'wedge',
+  square: 'square',
+  circle: 'circle'
+};
+
+// Current formation
+let currentFormation = formations.line;
+
+// Formation bonuses
+const formationBonuses = {
+  line: { attackMultiplier: 1.0, defenseMultiplier: 1.0 },
+  wedge: { attackMultiplier: 1.2, defenseMultiplier: 0.8 },
+  square: { attackMultiplier: 0.8, defenseMultiplier: 1.3 },
+  circle: { attackMultiplier: 1.0, defenseMultiplier: 1.2 }
+};
+
+// Change formation
+function changeFormation(formation) {
+  if (!formations[formation]) {
+    log("Invalid formation.");
+    return;
+  }
+  currentFormation = formation;
+  log(`Formation changed to ${formation}.`);
+  updateUI();
+}
+
+// Get formation multipliers
+function getFormationAttackMultiplier() {
+  return formationBonuses[currentFormation].attackMultiplier;
+}
+
+function getFormationDefenseMultiplier() {
+  return formationBonuses[currentFormation].defenseMultiplier;
+}
+
+// =====================
+// Combat Calculations
+// =====================
+
+// Calculate total attack power including gear and formation
+function calculateTotalAttackPower() {
+  let basePower = baseAttackPower + gearAttackBonus + (prestigePoints * 5);
+  let multiplier = getFormationAttackMultiplier();
+  return Math.floor(basePower * multiplier);
+}
+
+// Calculate total defense power including gear and formation
+function calculateTotalDefensePower() {
+  let basePower = baseDefensePower + gearDefenseBonus + (prestigePoints * 3);
+  let multiplier = getFormationDefenseMultiplier();
+  return Math.floor(basePower * multiplier);
+}
+
+// Enemy attack modified by player defense
+function enemyAttack() {
+  if (!currentEnemy) return;
+  let baseDamage = currentEnemy.type.attackPower;
+  let defense = calculateTotalDefensePower();
+  let damageAfterDefense = Math.max(0, baseDamage - defense);
+  let damage = damageAfterDefense + Math.floor(Math.random() * 5);
+
+  // Soldiers lost calculation
+  let soldiersLost = Math.min(getTotalSoldiers(), Math.floor(damage / 2));
+  if (soldiersLost > 0) {
+    for (let key in soldierCountByClass) {
+      if (soldiersLost <= 0) break;
+      let count = soldierCountByClass[key];
+      if (count <= 0) continue;
+      let removeCount = Math.min(count, soldiersLost);
+      soldierCountByClass[key] -= removeCount;
+      soldiersLost -= removeCount;
+    }
+    log(`Enemy attacked! You lost ${Math.floor(damage / 2)} soldiers.`);
+    addFeedback(`-${Math.floor(damage / 2)} Soldiers Lost`, 150, 580, 'orange');
+  } else {
+    log("Enemy attacked but your defense absorbed all damage.");
+  }
+  updateUI();
+}
+
+// =====================
+// Inventory UI Updates
+// =====================
+
+function updateInventoryUI() {
+  const invContainer = document.getElementById('inventoryList');
+  if (!invContainer) return;
+  invContainer.innerHTML = '';
+  if (playerInventory.length === 0) {
+    invContainer.textContent = "Inventory is empty.";
+    return;
+  }
+  playerInventory.forEach(item => {
+    let div = document.createElement('div');
+    div.className = 'inventory-item';
+    div.textContent = `${item.name} (${item.rarity})`;
+    div.onclick = () => equipItem(item.id);
+    invContainer.appendChild(div);
+  });
+}
+
+// Update equipped gear UI
+function updateGearUI() {
+  const gearContainer = document.getElementById('equippedGear');
+  if (!gearContainer) return;
+  gearContainer.innerHTML = '';
+
+  ['weapon', 'armor', 'accessory'].forEach(slot => {
+    let item = equippedGear[slot];
+    let div = document.createElement('div');
+    div.className = 'gear-slot';
+    div.textContent = `${slot.toUpperCase()}: ${item ? item.name : 'None'}`;
+    if (item) {
+      let unequipBtn = document.createElement('button');
+      unequipBtn.textContent = 'Unequip';
+      unequipBtn.onclick = () => unequipItem(slot);
+      div.appendChild(unequipBtn);
+    }
+    gearContainer.appendChild(div);
+  });
+}
+
+// Update crafting materials UI
+function updateMaterialsUI() {
+  const matContainer = document.getElementById('materialsList');
+  if (!matContainer) return;
+  matContainer.innerHTML = '';
+  for (let mat in craftingMaterials) {
+    let div = document.createElement('div');
+    div.className = 'material-item';
+    div.textContent = `${mat}: ${craftingMaterials[mat]}`;
+    matContainer.appendChild(div);
+  }
+}
+
+// ====================
+// Item Crafting UI Setup
+// ====================
+
+function setupCraftingUI() {
+  const craftingContainer = document.getElementById('craftingList');
+  if (!craftingContainer) return;
+  craftingContainer.innerHTML = '';
+  itemDatabase.forEach(item => {
+    let div = document.createElement('div');
+    div.className = 'crafting-item';
+    div.textContent = `${item.name} (${item.rarity}) - Requires: `;
+
+    let reqs = [];
+    for (let mat in item.craftingMaterials) {
+      reqs.push(`${mat} x${item.craftingMaterials[mat]}`);
+    }
+    div.textContent += reqs.join(', ');
+
+    let craftBtn = document.createElement('button');
+    craftBtn.textContent = "Craft";
+    craftBtn.disabled = !canCraft(item);
+    craftBtn.onclick = () => {
+      if (craftItem(item.id)) {
+        craftBtn.disabled = !canCraft(item);
+      }
+    };
+
+    div.appendChild(craftBtn);
+    craftingContainer.appendChild(div);
+  });
+}
+
+// ====================
+// Formation UI Setup
+// ====================
+
+function setupFormationUI() {
+  const formationContainer = document.getElementById('formationList');
+  if (!formationContainer) return;
+  formationContainer.innerHTML = '';
+  for (let form in formations) {
+    let btn = document.createElement('button');
+    btn.textContent = form.charAt(0).toUpperCase() + form.slice(1);
+    btn.onclick = () => {
+      changeFormation(form);
+      highlightSelectedFormation(form);
+    };
+    formationContainer.appendChild(btn);
+  }
+}
+
+function highlightSelectedFormation(selected) {
+  const formationContainer = document.getElementById('formationList');
+  if (!formationContainer) return;
+  Array.from(formationContainer.children).forEach(btn => {
+    btn.style.backgroundColor = btn.textContent.toLowerCase() === selected ? 'lightblue' : '';
+  });
+}
+
+// ====================
+// UI Button Setups
+// ====================
+
+function setupItemButtons() {
+  setupCraftingUI();
+  setupInventoryUI();
+  setupGearUI();
+  setupMaterialsUI();
+  setupFormationUI();
+}
+
+function setupInventoryUI() {
+  updateInventoryUI();
+}
+
+function setupGearUI() {
+  updateGearUI();
+}
+
+function setupMaterialsUI() {
+  updateMaterialsUI();
+}
+
+// ====================
+// Initialization tweaks
+// ====================
+
+function initGame() {
+  spawnEnemy(currentEnemyIndex);
+  updateUI();
+  setupUI();
+  setupSoldierClassUI();
+  setupItemButtons();
+  setupUpgradeButtons();
+  log("Game Initialized.");
+  highlightSelectedFormation(currentFormation);
+}
+
+window.onload = initGame;
+
+// =======================
+// Base Stats (defaults)
+// =======================
+
+let baseAttackPower = 10;
+let baseDefensePower = 5;
+let gearAttackBonus = 0;
+let gearDefenseBonus = 0;
+let totalAttackPower = baseAttackPower;
+let totalDefensePower = baseDefensePower;
+
+
 
