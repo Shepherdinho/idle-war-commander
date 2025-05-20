@@ -3,309 +3,303 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Idle War Commander - Enhanced</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet" />
+<title>Idle War Commander - Core</title>
 <style>
   body {
-    font-family: 'Orbitron', sans-serif;
-    background: #0f0f0f;
-    color: #f1f1f1;
     margin: 0;
-    padding: 0;
-    overflow-x: hidden;
+    overflow: hidden;
+    background: #121212;
+    color: #eee;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
-  header {
-    background: #111;
-    padding: 20px;
-    text-align: center;
-    font-size: 2rem;
-    border-bottom: 2px solid #333;
-    user-select: none;
+  #gameContainer {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
   }
-  .container {
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    gap: 20px;
-    padding: 20px;
+  #gameCanvas {
+    background: #1b1b1b;
+    flex: 3;
+    display: block;
   }
-  .panel, .logbox {
-    background: rgba(255,255,255,0.05);
-    border-radius: 8px;
+  #uiPanel {
+    flex: 1;
+    background: #222;
     padding: 15px;
     box-sizing: border-box;
+    overflow-y: auto;
   }
-  .panel h3, .logbox h3 {
-    margin-top: 0;
+  h1, h2 {
+    margin: 0 0 10px 0;
   }
   button {
-    margin: 8px 0;
-    padding: 12px;
     width: 100%;
+    margin: 6px 0;
+    padding: 10px;
     font-size: 1rem;
-    background: #3498db;
+    background: #3a3a3a;
     border: none;
-    color: white;
+    color: #eee;
     cursor: pointer;
     border-radius: 6px;
     transition: background 0.3s;
-    font-weight: 700;
   }
   button:hover:not(:disabled) {
-    background: #2980b9;
+    background: #4caf50;
   }
   button:disabled {
     background: #555;
     cursor: not-allowed;
   }
-  .log {
-    max-height: 220px;
+  .stat {
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+  }
+  #log {
+    margin-top: 20px;
+    height: 160px;
     overflow-y: auto;
+    background: #111;
+    padding: 8px;
+    border-radius: 6px;
     font-size: 0.9rem;
-  }
-  /* Battlefield area */
-  .graphics {
-    position: relative;
-    background: linear-gradient(135deg, #003300, #006600);
-    border-radius: 12px;
-    height: 320px;
-    overflow: visible;
-  }
-  /* Soldier sprite container */
-  .soldier {
-    position: absolute;
-    bottom: 20px;
-    left: 10%;
-    width: 128px;
-    height: 128px;
-    background-image: url('https://i.imgur.com/mGxmTvQ.png'); /* soldier sprite sheet: 7 frames horizontal */
-    background-size: 896% 100%;
-    animation: soldierRun 1.4s steps(7) infinite;
-    image-rendering: pixelated;
-    user-select: none;
-  }
-  /* Enemy sprite container */
-  .enemy {
-    position: absolute;
-    bottom: 20px;
-    right: 10%;
-    width: 128px;
-    height: 128px;
-    background-image: url('https://i.imgur.com/5uqXc5R.png'); /* enemy sprite sheet: 8 frames horizontal */
-    background-size: 800% 100%;
-    animation: enemyRun 1.6s steps(8) infinite;
-    image-rendering: pixelated;
-    user-select: none;
-  }
-  /* Attack flash effect on enemy */
-  .enemy.attack-flash {
-    animation: enemyAttackFlash 0.5s ease forwards;
-  }
-  @keyframes soldierRun {
-    from { background-position: 0 0; }
-    to { background-position: 100% 0; }
-  }
-  @keyframes enemyRun {
-    from { background-position: 0 0; }
-    to { background-position: 100% 0; }
-  }
-  @keyframes enemyAttackFlash {
-    0% { filter: brightness(1); }
-    50% { filter: brightness(3); }
-    100% { filter: brightness(1); }
+    line-height: 1.2;
   }
 </style>
 </head>
 <body>
-<header>Idle War Commander</header>
-
-<div class="container">
-  <section class="panel" aria-label="Game controls and stats">
-    <h3>Army Overview</h3>
-    <p>Soldiers: <strong id="soldiers">0</strong></p>
-    <p>Enemy Health: <strong id="enemyHealth">100</strong></p>
-    <p>Recruit Rate: <strong id="recruitRate">1</strong> / 5s</p>
-    <p>Attack Power: <strong id="attackPower">10</strong></p>
-    <p>Gold: <strong id="gold">0</strong></p>
-
-    <h3>Combat</h3>
-    <button id="attackBtn" disabled>Attack Enemy (Cost: 5 soldiers)</button>
-
-    <h3>Upgrades</h3>
-    <button id="upgradeRecruitBtn" disabled>Upgrade Recruit Rate (<span id="upgradeRecruitCost">50</span> soldiers)</button>
-    <button id="upgradeAttackBtn" disabled>Upgrade Attack Power (<span id="upgradeAttackCost">75</span> soldiers)</button>
-    <button id="upgradeGoldBtn" disabled>Upgrade Gold Gain (<span id="upgradeGoldCost">30</span> gold)</button>
-
-    <h3>Item Shop</h3>
-    <button id="buyShieldBtn" disabled>Buy Shield (50 gold)</button>
-    <button id="buyMedicBtn" disabled>Buy Medic Tent (100 gold)</button>
-
-    <button id="resetBtn">Reset Game</button>
-  </section>
-
-  <section class="graphics" aria-label="Battlefield">
-    <div class="soldier" role="img" aria-label="Animated soldiers training"></div>
-    <div class="enemy" role="img" aria-label="Animated enemy fighting"></div>
-  </section>
-</div>
-
-<div class="logbox" aria-live="polite" aria-atomic="true" aria-label="Command Log">
-  <h3>Command Log</h3>
-  <div class="log" id="log"></div>
+<div id="gameContainer">
+  <canvas id="gameCanvas" width="800" height="600"></canvas>
+  <div id="uiPanel">
+    <h1>Idle War Commander</h1>
+    <div class="stat">Soldiers: <span id="soldiersCount">0</span></div>
+    <div class="stat">Gold: <span id="goldCount">0</span></div>
+    <div class="stat">Enemy Health: <span id="enemyHealth">100</span></div>
+    <h2>Actions</h2>
+    <button id="attackBtn" disabled>Attack Enemy (-5 Soldiers)</button>
+    <button id="recruitBtn">Recruit Soldiers (+1 per 3 sec)</button>
+    <h2>Upgrades</h2>
+    <button id="upgradeRecruitBtn">Upgrade Recruitment (Cost: 50 Soldiers)</button>
+    <button id="upgradeAttackBtn">Upgrade Attack Power (Cost: 75 Soldiers)</button>
+    <button id="upgradeGoldBtn">Upgrade Gold Gain (Cost: 30 Gold)</button>
+    <h2>Item Shop</h2>
+    <button id="buyShieldBtn">Buy Shield (50 Gold)</button>
+    <button id="buyMedicBtn">Buy Medic Tent (100 Gold)</button>
+    <div id="log"></div>
+  </div>
 </div>
 
 <script>
-  // Game State
-  let soldiers = 0;
-  let enemyHealth = 100;
-  let recruitRate = 1;
-  let attackPower = 10;
-  let gold = 0;
-  let goldGain = 1;
-  let shieldActive = false;
-  let medicActive = false;
+// Canvas setup
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const width = canvas.width;
+const height = canvas.height;
 
-  let upgradeRecruitCost = 50;
-  let upgradeAttackCost = 75;
-  let upgradeGoldCost = 30;
+// Game State
+let soldiers = 0;
+let gold = 0;
+let enemyHealth = 100;
+let maxEnemyHealth = 100;
 
-  // DOM refs
-  const $ = id => document.getElementById(id);
-  const soldiersEl = $('soldiers');
-  const enemyHealthEl = $('enemyHealth');
-  const recruitRateEl = $('recruitRate');
-  const attackPowerEl = $('attackPower');
-  const goldEl = $('gold');
+let recruitRate = 1; // soldiers per interval
+let recruitInterval = 3000; // 3 seconds
 
-  const upgradeRecruitCostEl = $('upgradeRecruitCost');
-  const upgradeAttackCostEl = $('upgradeAttackCost');
-  const upgradeGoldCostEl = $('upgradeGoldCost');
+let attackPower = 10;
+let goldGain = 1;
 
-  const attackBtn = $('attackBtn');
-  const upgradeRecruitBtn = $('upgradeRecruitBtn');
-  const upgradeAttackBtn = $('upgradeAttackBtn');
-  const upgradeGoldBtn = $('upgradeGoldBtn');
+let shieldActive = false;
+let medicActive = false;
 
-  const buyShieldBtn = $('buyShieldBtn');
-  const buyMedicBtn = $('buyMedicBtn');
+let upgradeRecruitCost = 50;
+let upgradeAttackCost = 75;
+let upgradeGoldCost = 30;
 
-  const resetBtn = $('resetBtn');
-  const logEl = $('log');
+// UI Elements
+const soldiersCount = document.getElementById('soldiersCount');
+const goldCount = document.getElementById('goldCount');
+const enemyHealthEl = document.getElementById('enemyHealth');
 
-  const enemyDiv = document.querySelector('.enemy');
+const attackBtn = document.getElementById('attackBtn');
+const recruitBtn = document.getElementById('recruitBtn');
+const upgradeRecruitBtn = document.getElementById('upgradeRecruitBtn');
+const upgradeAttackBtn = document.getElementById('upgradeAttackBtn');
+const upgradeGoldBtn = document.getElementById('upgradeGoldBtn');
+const buyShieldBtn = document.getElementById('buyShieldBtn');
+const buyMedicBtn = document.getElementById('buyMedicBtn');
+const logEl = document.getElementById('log');
 
-  // Update UI and buttons enable state
-  function updateUI() {
-    soldiersEl.textContent = soldiers;
-    enemyHealthEl.textContent = enemyHealth;
-    recruitRateEl.textContent = recruitRate;
-    attackPowerEl.textContent = attackPower;
-    goldEl.textContent = gold;
+// Timing control
+let lastRecruitTime = 0;
+let lastEnemyAttackTime = 0;
+const enemyAttackInterval = 7000; // Enemy attacks roughly every 7 sec
 
-    upgradeRecruitCostEl.textContent = upgradeRecruitCost;
-    upgradeAttackCostEl.textContent = upgradeAttackCost;
-    upgradeGoldCostEl.textContent = upgradeGoldCost;
+// Animation Frames for soldiers and enemies
+const soldierFrames = [];
+const enemyFrames = [];
+let soldierFrameIndex = 0;
+let enemyFrameIndex = 0;
 
-    attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
-    upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
-    upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
-    upgradeGoldBtn.disabled = gold < upgradeGoldCost;
+// Load images for animations
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+}
 
-    buyShieldBtn.disabled = gold < 50 || shieldActive;
-    buyMedicBtn.disabled = gold < 100 || medicActive;
+async function loadAssets() {
+  // You can replace these URLs with your own sprites or sprite sheets
+  // For now we load 4 frames each for soldiers and enemies for simple animation
+  soldierFrames.push(await loadImage('https://i.imgur.com/zG7p3TG.png')); // soldier1
+  soldierFrames.push(await loadImage('https://i.imgur.com/ooNxMPh.png')); // soldier2
+  soldierFrames.push(await loadImage('https://i.imgur.com/fjFczJF.png')); // soldier3
+  soldierFrames.push(await loadImage('https://i.imgur.com/txCZ0no.png')); // soldier4
+
+  enemyFrames.push(await loadImage('https://i.imgur.com/dGkNaPc.png')); // enemy1
+  enemyFrames.push(await loadImage('https://i.imgur.com/cvA4L4P.png')); // enemy2
+  enemyFrames.push(await loadImage('https://i.imgur.com/t2V0zHf.png')); // enemy3
+  enemyFrames.push(await loadImage('https://i.imgur.com/3Uy1cRz.png')); // enemy4
+}
+
+// Game Logs
+function log(message) {
+  const p = document.createElement('p');
+  p.textContent = message;
+  logEl.prepend(p);
+  if (logEl.childNodes.length > 50) {
+    logEl.removeChild(logEl.lastChild);
+  }
+}
+
+// Update UI elements
+function updateUI() {
+  soldiersCount.textContent = soldiers;
+  goldCount.textContent = gold;
+  enemyHealthEl.textContent = enemyHealth;
+  attackBtn.disabled = soldiers < 5 || enemyHealth <= 0;
+  upgradeRecruitBtn.disabled = soldiers < upgradeRecruitCost;
+  upgradeAttackBtn.disabled = soldiers < upgradeAttackCost;
+  upgradeGoldBtn.disabled = gold < upgradeGoldCost;
+  buyShieldBtn.disabled = gold < 50 || shieldActive;
+  buyMedicBtn.disabled = gold < 100 || medicActive;
+}
+
+// Recruitment
+function recruitSoldiers() {
+  soldiers += recruitRate;
+  log(`Recruited ${recruitRate} soldier(s). Total: ${soldiers}`);
+}
+
+// Attack Enemy
+function attackEnemy() {
+  if (soldiers < 5 || enemyHealth <= 0) return;
+  soldiers -= 5;
+  enemyHealth -= attackPower;
+
+  log(`Attacked enemy for ${attackPower} damage. Enemy health: ${Math.max(enemyHealth, 0)}`);
+
+  if (enemyHealth <= 0) {
+    enemyHealth = 0;
+    soldiers += 50;
+    gold += 10 * goldGain;
+    log(`Enemy defeated! Gained 50 soldiers and ${10 * goldGain} gold.`);
+    enemyHealth = maxEnemyHealth;
   }
 
-  // Log helper
-  function logEvent(msg, color = '#ccc') {
-    const p = document.createElement('p');
-    p.textContent = msg;
-    p.style.color = color;
-    logEl.prepend(p);
+  updateUI();
+}
+
+// Enemy Attacks Soldiers
+function enemyAttack() {
+  if (soldiers <= 0) {
+    log('Enemy attacks but you have no soldiers left!');
+    return;
   }
 
-  // Soldier recruitment every 5s + medic healing
-  setInterval(() => {
-    soldiers += recruitRate;
-    if (medicActive) {
-      soldiers += 2; // Medic heals 2 soldiers every 5s
-      logEvent('Medic tent healed 2 soldiers.', '#1abc9c');
-    }
-    logEvent(`Recruited ${recruitRate} soldiers.`);
+  if (shieldActive) {
+    shieldActive = false;
+    log('Shield absorbed the enemy attack!');
+    return;
+  }
+
+  let damage = Math.min(soldiers, Math.floor(Math.random() * 15) + 5);
+  soldiers -= damage;
+  log(`Enemy attacked! Lost ${damage} soldiers.`);
+
+  if (medicActive) {
+    let heal = Math.min(5, 100 - soldiers);
+    soldiers += heal;
+    log(`Medic Tent healed ${heal} soldiers.`);
+  }
+
+  updateUI();
+}
+
+// Upgrades
+function upgradeRecruit() {
+  if (soldiers >= upgradeRecruitCost) {
+    soldiers -= upgradeRecruitCost;
+    recruitRate++;
+    upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
+    log('Recruitment rate upgraded!');
     updateUI();
-  }, 5000);
+  }
+}
 
-  // Random enemy attacks with shield & medic logic
-  setInterval(() => {
-    if (Math.random() < 0.3) {
-      if (shieldActive) {
-        logEvent('Shield absorbed enemy attack!', '#f1c40f');
-        shieldActive = false;
-        buyShieldBtn.disabled = false; // Allow buying again
-      } else if (soldiers > 0) {
-        const loss = Math.min(soldiers, Math.floor(Math.random() * 10) + 1);
-        soldiers -= loss;
-        logEvent(`Enemy attacked! Lost ${loss} soldiers.`, '#e74c3c');
-      } else {
-        logEvent('Enemy attacked, but no soldiers left!', '#e74c3c');
-      }
-      updateUI();
-    }
-  }, 7000);
+function upgradeAttack() {
+  if (soldiers >= upgradeAttackCost) {
+    soldiers -= upgradeAttackCost;
+    attackPower += 5;
+    upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
+    log('Attack power upgraded!');
+    updateUI();
+  }
+}
 
-  // Attack enemy logic + animation flash
-  attackBtn.onclick = () => {
-    if (soldiers >= 5 && enemyHealth > 0) {
-      soldiers -= 5;
-      enemyHealth -= attackPower;
-      // Trigger enemy flash
-      enemyDiv.classList.add('attack-flash');
-      setTimeout(() => enemyDiv.classList.remove('attack-flash'), 500);
+function upgradeGold() {
+  if (gold >= upgradeGoldCost) {
+    gold -= upgradeGoldCost;
+    goldGain++;
+    upgradeGoldCost = Math.floor(upgradeGoldCost * 1.5);
+    log('Gold gain upgraded!');
+    updateUI();
+  }
+}
 
-      if (enemyHealth <= 0) {
-        enemyHealth = 0;
-        logEvent('Enemy defeated! +50 soldiers & gold.', '#2ecc71');
-        soldiers += 50;
-        gold += 10 * goldGain;
-        enemyHealth = 100;
-      } else {
-        logEvent('Enemy damaged!', '#f39c12');
-      }
-      updateUI();
-    }
-  };
+// Buy items
+function buyShield() {
+  if (gold >= 50 && !shieldActive) {
+    gold -= 50;
+    shieldActive = true;
+    log('Shield purchased and activated!');
+    updateUI();
+  }
+}
 
-  // Upgrade recruit rate
-  upgradeRecruitBtn.onclick = () => {
-    if (soldiers >= upgradeRecruitCost) {
-      soldiers -= upgradeRecruitCost;
-      recruitRate++;
-      upgradeRecruitCost = Math.floor(upgradeRecruitCost * 1.7);
-      logEvent('Recruit rate upgraded!', '#3498db');
-      updateUI();
-    }
-  };
+function buyMedic() {
+  if (gold >= 100 && !medicActive) {
+    gold -= 100;
+    medicActive = true;
+    log('Medic Tent purchased! Soldiers will heal after attacks.');
+    updateUI();
+  }
+}
 
-  // Upgrade attack power
-  upgradeAttackBtn.onclick = () => {
-    if (soldiers >= upgradeAttackCost) {
-      soldiers -= upgradeAttackCost;
-      attackPower += 5;
-      upgradeAttackCost = Math.floor(upgradeAttackCost * 1.8);
-      logEvent('Attack power increased!', '#3498db');
-      updateUI();
-    }
-  };
+// Game Loop
+let lastFrameTime = 0;
+function gameLoop(timestamp) {
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  let delta = timestamp - lastFrameTime;
 
-  // Upgrade gold gain
-  upgradeGoldBtn.onclick = () => {
-    if (gold >= upgradeGoldCost) {
-      gold -= upgradeGoldCost;
-      goldGain++;
-      upgradeGoldCost = Math.floor(upgradeGoldCost * 1.5);
-      logEvent('Gold gain multiplier increased!', '#3498db');
-      updateUI();
-    }
-  };
+  // Recruitment timing
+  if (timestamp - lastRecruitTime > recruitInterval) {
+    recruitSoldiers();
+    lastRecruitTime = timestamp;
+  }
 
-  // Buy shield
-  buyShieldBtn.onclick = () => {
-    if (gold >= 50 && !shieldActive)
+  // Enemy attack timing
+  if (timestamp - lastEnemyAttackTime > enemyAttackInterval) {
+    enemyAttack();
+    lastEnemy
