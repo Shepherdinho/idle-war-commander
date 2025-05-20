@@ -1195,5 +1195,428 @@ function recruitSoldierClass(className, amount = 1) {
 // Initialize save/load buttons UI and handlers
 document.getElementById('saveGameBtn').onclick = saveGame;
 document.getElementById('loadGameBtn').onclick = loadGame;
+// ========================
+// Quest and Mission System
+// ========================
 
+const quests = [
+  {
+    id: 1,
+    name: "First Blood",
+    description: "Defeat your first enemy.",
+    completed: false,
+    condition: () => enemyDefeatedCount >= 1,
+    reward: () => {
+      gold += 100;
+      log("Quest Reward: 100 Gold!");
+      updateUI();
+    }
+  },
+  {
+    id: 2,
+    name: "Recruiter",
+    description: "Recruit 50 soldiers total.",
+    completed: false,
+    condition: () => getTotalSoldiers() >= 50,
+    reward: () => {
+      gold += 200;
+      recruitRate += 2;
+      log("Quest Reward: 200 Gold + Recruit Rate +2");
+      updateUI();
+    }
+  },
+  {
+    id: 3,
+    name: "Elite Force",
+    description: "Recruit at least 10 Cavalry soldiers.",
+    completed: false,
+    condition: () => soldierCountByClass['cavalry'] >= 10,
+    reward: () => {
+      gold += 300;
+      attackPower += 10;
+      log("Quest Reward: 300 Gold + Attack Power +10");
+      updateUI();
+    }
+  }
+];
+
+// Track quests progress globally
+let activeQuests = quests.slice();
+let completedQuests = [];
+
+// Called periodically to check quest completion
+function checkQuests() {
+  for (let q of activeQuests) {
+    if (!q.completed && q.condition()) {
+      q.completed = true;
+      q.reward();
+      log(`Quest Completed: ${q.name}`);
+      completedQuests.push(q);
+    }
+  }
+  // Remove completed quests from active
+  activeQuests = activeQuests.filter(q => !q.completed);
+  updateQuestUI();
+}
+
+// Render quest UI list
+function updateQuestUI() {
+  const questContainer = document.getElementById('questList');
+  if (!questContainer) return;
+  questContainer.innerHTML = '';
+
+  if (activeQuests.length === 0) {
+    questContainer.textContent = "No active quests.";
+    return;
+  }
+
+  for (let q of activeQuests) {
+    let div = document.createElement('div');
+    div.className = 'quest-item';
+    div.textContent = `${q.name}: ${q.description}`;
+    questContainer.appendChild(div);
+  }
+}
+
+// =======================
+// Achievements System
+// =======================
+
+const achievements = [
+  {
+    id: 1,
+    name: "Warrior Novice",
+    description: "Attack 100 times.",
+    unlocked: false,
+    condition: () => attackCount >= 100,
+    reward: () => {
+      gold += 500;
+      log("Achievement Unlocked: Warrior Novice (+500 Gold)");
+      updateUI();
+    }
+  },
+  {
+    id: 2,
+    name: "Millionaire",
+    description: "Accumulate 1,000,000 gold total.",
+    unlocked: false,
+    condition: () => totalGoldEarned >= 1000000,
+    reward: () => {
+      recruitRate += 5;
+      log("Achievement Unlocked: Millionaire (+5 Recruit Rate)");
+      updateUI();
+    }
+  }
+];
+
+let activeAchievements = achievements.slice();
+let unlockedAchievements = [];
+
+// Check and unlock achievements
+function checkAchievements() {
+  for (let ach of activeAchievements) {
+    if (!ach.unlocked && ach.condition()) {
+      ach.unlocked = true;
+      ach.reward();
+      log(`Achievement Unlocked: ${ach.name}`);
+      unlockedAchievements.push(ach);
+    }
+  }
+  activeAchievements = activeAchievements.filter(a => !a.unlocked);
+  updateAchievementUI();
+}
+
+function updateAchievementUI() {
+  const achContainer = document.getElementById('achievementList');
+  if (!achContainer) return;
+  achContainer.innerHTML = '';
+
+  if (unlockedAchievements.length === 0) {
+    achContainer.textContent = "No achievements unlocked yet.";
+    return;
+  }
+
+  for (let a of unlockedAchievements) {
+    let div = document.createElement('div');
+    div.className = 'achievement-item';
+    div.textContent = `${a.name}: ${a.description}`;
+    achContainer.appendChild(div);
+  }
+}
+
+// ============================
+// Prestige / Reset System
+// ============================
+
+let prestigePoints = 0;
+
+// Calculate prestige points based on progress (e.g., total gold earned)
+function calculatePrestigePoints() {
+  // For every 100k gold earned, 1 prestige point
+  return Math.floor(totalGoldEarned / 100000);
+}
+
+// Prestige reset function to reset progress for permanent bonuses
+function prestigeReset() {
+  let points = calculatePrestigePoints();
+  if (points <= prestigePoints) {
+    log("Not enough progress to gain more prestige points.");
+    return;
+  }
+  let gained = points - prestigePoints;
+  prestigePoints = points;
+  log(`Prestige Reset! You gained ${gained} prestige points.`);
+
+  // Reset core game variables but keep prestige bonuses
+  gold = 0;
+  soldiers = 0;
+  soldierCountByClass = { infantry: 0, archer: 0, cavalry: 0 };
+  recruitQueue = [];
+  currentEnemyIndex = 0;
+  enemyDefeatedCount = 0;
+  attackCount = 0;
+  totalGoldEarned = 0;
+
+  attackPower = 10 + prestigePoints * 5; // Each prestige point adds attack
+  recruitRate = 1 + prestigePoints * 1; // Each prestige point adds recruit rate
+  goldGain = 1 + prestigePoints * 0.5;
+
+  // Reset upgrades too
+  for (let key in upgrades) {
+    upgrades[key].level = 0;
+  }
+
+  activeQuests = quests.slice();
+  completedQuests = [];
+  activeAchievements = achievements.slice();
+  unlockedAchievements = [];
+
+  spawnEnemy(currentEnemyIndex);
+  updateUI();
+  updateQuestUI();
+  updateAchievementUI();
+}
+
+// Attach prestige button
+document.getElementById('prestigeBtn').onclick = prestigeReset;
+
+// ================================
+// Feedback Animations & Effects
+// ================================
+
+const feedbackMessages = [];
+
+function addFeedback(message, x, y, color = 'yellow') {
+  feedbackMessages.push({
+    message,
+    x,
+    y,
+    alpha: 1.0,
+    color,
+    lifespan: 1000, // ms
+    created: Date.now()
+  });
+}
+
+// Draw feedback animations on canvas
+function drawFeedback(ctx) {
+  const now = Date.now();
+  feedbackMessages.forEach((fb, index) => {
+    let elapsed = now - fb.created;
+    if (elapsed > fb.lifespan) {
+      feedbackMessages.splice(index, 1);
+      return;
+    }
+    fb.alpha = 1 - elapsed / fb.lifespan;
+    ctx.save();
+    ctx.globalAlpha = fb.alpha;
+    ctx.fillStyle = fb.color;
+    ctx.font = '20px Arial';
+    ctx.fillText(fb.message, fb.x, fb.y - (elapsed / 10));
+    ctx.restore();
+  });
+}
+
+// Extend drawGame to call drawFeedback
+const originalDrawGame = drawGame;
+drawGame = function() {
+  originalDrawGame();
+
+  const canvas = document.getElementById('gameCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  drawFeedback(ctx);
+};
+
+// Add feedback when attacking or recruiting
+function playerAttack() {
+  let totalAttack = calculateTotalAttackPower();
+
+  if (!currentEnemy) return;
+
+  currentEnemy.health -= totalAttack;
+  addFeedback(`-${totalAttack}`, 400, 150, 'red');
+  log(`You attacked enemy for ${totalAttack} damage!`);
+  playSound('attack');
+
+  attackCount++;
+  totalGoldEarned += 0; // No gold on attack, but track totalGoldEarned elsewhere
+
+  if (currentEnemy.health <= 0) {
+    playSound('enemyDefeated');
+    enemyDefeated();
+  }
+
+  checkQuests();
+  checkAchievements();
+  updateUI();
+}
+
+function recruitSoldierClass(className, amount = 1) {
+  if (!soldierClasses[className]) return false;
+  let cost = soldierClasses[className].recruitCost * amount;
+  if (soldiers < cost) {
+    log(`Not enough soldiers to recruit ${amount} ${className}(s).`);
+    return false;
+  }
+  soldiers -= cost;
+  for(let i = 0; i < amount; i++) {
+    recruitQueue.push(className);
+  }
+  addFeedback(`+${amount} ${className}`, 150, 550, 'limegreen');
+  log(`Queued recruitment of ${amount} ${className}(s).`);
+  playSound('recruit');
+  updateUI();
+  return true;
+}
+
+// =========================
+// Auto Save / Auto Load
+// =========================
+
+let autoSaveInterval = 60000; // 1 minute
+
+function autoSaveGame() {
+  saveGame();
+  log("Game auto-saved.");
+}
+
+setInterval(autoSaveGame, autoSaveInterval);
+
+// =========================
+// UI Helpers and Setup
+// =========================
+
+// Populate the quest, achievement, and prestige UI containers
+function setupUI() {
+  updateQuestUI();
+  updateAchievementUI();
+
+  // Prestige points display
+  const prestigeDisplay = document.getElementById('prestigePoints');
+  if (prestigeDisplay) {
+    prestigeDisplay.textContent = `Prestige Points: ${prestigePoints}`;
+  }
+}
+
+setupUI();
+
+// =====================
+// Enemy AI Behavior
+// =====================
+
+// Enemy attack damage calculation with randomness and scaling
+function enemyAttack() {
+  if (!currentEnemy) return;
+  let baseDamage = currentEnemy.type.attackPower;
+  let damage = baseDamage + Math.floor(Math.random() * 5);
+  // Reduce soldiers as damage taken
+  let soldiersLost = Math.min(getTotalSoldiers(), Math.floor(damage / 2));
+  if (soldiersLost > 0) {
+    // Remove soldiers proportionally from classes
+    for (let key in soldierCountByClass) {
+      if (soldiersLost <= 0) break;
+      let count = soldierCountByClass[key];
+      if (count <= 0) continue;
+      let removeCount = Math.min(count, soldiersLost);
+      soldierCountByClass[key] -= removeCount;
+      soldiersLost -= removeCount;
+    }
+    log(`Enemy attacked and you lost ${Math.floor(damage/2)} soldiers.`);
+    addFeedback(`-${Math.floor(damage/2)} Soldiers Lost`, 150, 580, 'orange');
+  } else {
+    log("Enemy attacked but you have no soldiers lost.");
+  }
+  updateUI();
+}
+
+// Enemy attacks every X seconds, scaled by enemy level
+let enemyAttackInterval = 7000;
+
+setInterval(() => {
+  if (currentEnemy && !currentEnemy.health <= 0) {
+    enemyAttack();
+  }
+}, enemyAttackInterval);
+
+// ======================
+// Debug / Dev Commands
+// ======================
+
+window.devCheats = {
+  addGold: (amount) => {
+    gold += amount;
+    totalGoldEarned += amount;
+    log(`Cheat: Added ${amount} gold.`);
+    updateUI();
+  },
+  addSoldiers: (amount) => {
+    soldiers += amount;
+    log(`Cheat: Added ${amount} soldiers.`);
+    updateUI();
+  },
+  killEnemy: () => {
+    if (currentEnemy) {
+      currentEnemy.health = 0;
+      enemyDefeated();
+      log("Cheat: Enemy killed.");
+    }
+  },
+  prestige: () => {
+    prestigeReset();
+  }
+};
+
+log("Dev Cheats available: devCheats.addGold(amount), devCheats.addSoldiers(amount), devCheats.killEnemy(), devCheats.prestige()");
+
+// =======================
+// Misc Utility Functions
+// =======================
+
+// Format large numbers with commas
+function formatNumber(num) {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Clamp number between min and max
+function clamp(num, min, max) {
+  return Math.min(Math.max(num, min), max);
+}
+
+// =======================
+// Game Initialization
+// =======================
+
+// Run on page load or game start
+function initGame() {
+  spawnEnemy(currentEnemyIndex);
+  updateUI();
+  setupUI();
+  setupSoldierClassUI();
+  setupItemButtons();
+  setupUpgradeButtons();
+  log("Game Initialized.");
+}
+
+window.onload = initGame;
 
